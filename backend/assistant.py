@@ -489,7 +489,7 @@ async def preview(acts: List[Dict[str, Any]]) -> str:
         elif a["type"] == "stock_in":
             before = stock.get(a["item_id"], a["stock_before"])
             stock[a["item_id"]] = before + a["rolls"]
-            lines.append(f'📦 {L("Maal aaya", "Goods in")} · {a["item_label"]} · +{a["rolls"]} roll' + (f' · {a["supplier"]}' if a["supplier"] else "")
+            lines.append(f'📦 {L("Maal aaya", "Goods in")} · {a["item_label"]} · +{a["rolls"]} {L("roll", "rolls")}' + (f' · {a["supplier"]}' if a["supplier"] else "")
                          + (f' · {rs(a["amount"])} {L("udhaar", "credit") if a["pay"] == "credit" else "paid"}' if a["amount"] else ""))
             effects.append(f'Stock {before}→{stock[a["item_id"]]}')
         elif a["type"] == "payment":
@@ -550,7 +550,7 @@ async def answer(q: Dict[str, Any], detail: bool = False) -> str:
         except Need as n:
             return str(n)
         o = S.item_out(it)
-        return f'{o["name"]} {o["micron"]:g} mic {o["grade"]}: {o["rolls"]} roll' + (f' (~{rs(o["est_kg"] * 100)[1:]} kg)' if o.get("est_kg") else "")
+        return f'{o["name"]} {o["micron"]:g} mic {o["grade"]}: {o["rolls"]} {L("roll", "rolls")}' + (f' (~{rs(o["est_kg"] * 100)[1:]} kg)' if o.get("est_kg") else "")
     if what == "today":
         day = S.today_ist()
         sold = n = 0
@@ -574,7 +574,7 @@ async def answer(q: Dict[str, Any], detail: bool = False) -> str:
         lab = lambda i: f'{S.item_name(i)} {("%g" % i["micron"]) if i.get("micron") else ""} {i["grade"]}'.replace("  ", " ")
         if detail:
             return L("Poora stock:\n", "Full stock:\n") + "\n".join(f'• {lab(i)}: {i["rolls"]} roll' for i in rows)
-        return f'{len(rows)} items, {sum(i["rolls"] for i in rows)} roll. {L("Sabse zyada", "Most")}: ' + ", ".join(f'{lab(i)} ({i["rolls"]})' for i in rows[:3]) + (L("\nPoori list: 'stock detail'", "\nFull list: 'stock detail'") if len(rows) > 3 else "")
+        return f'{len(rows)} items, {sum(i["rolls"] for i in rows)} {L("roll", "rolls")}. {L("Sabse zyada", "Most")}: ' + ", ".join(f'{lab(i)} ({i["rolls"]})' for i in rows[:3]) + (L("\nPoori list: 'stock detail'", "\nFull list: 'stock detail'") if len(rows) > 3 else "")
     return R["not_understood"]
 
 
