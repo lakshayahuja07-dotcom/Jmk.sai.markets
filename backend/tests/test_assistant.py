@@ -11,7 +11,7 @@ import pytest
 
 os.environ.update({"MONGO_URL": "mongodb://localhost:27017", "AUTH_SECRET": "t" * 40, "GRACE_DAYS": "0", "PIN_PEPPER": "p" * 20,
                    "SUPER_ADMIN_PIN": "1111", "OWNER_PIN": "2222", "GEMINI_API_KEY": "", "CORS_ORIGINS": "https://jmk.sai.markets",
-                   "WA_TOKEN": "tok", "WA_PHONE_ID": "123", "WA_VERIFY_TOKEN": "verify-me", "WA_APP_SECRET": "app-secret"})
+                   "OWNER_LANG": "hi", "WA_TOKEN": "tok", "WA_PHONE_ID": "123", "WA_VERIFY_TOKEN": "verify-me", "WA_APP_SECRET": "app-secret"})
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import motor.motor_asyncio  # noqa: E402
@@ -252,3 +252,35 @@ def test_polite_fixed_replies_need_no_ai(env):
     for v in a.R.values():  # every fixed reply is respectful: never "tu"/"tum"/"karo"/"bhejo"
         low = " " + v.lower() + " "
         assert not any(w in low for w in (" tu ", " tum ", " karo ", " bhejo ", " bolo ", " bata do "))
+
+
+def test_english_for_owner_who_prefers_english(env):
+    c, _, a, _ = env
+    h = H(c)
+    assert c.patch("/api/staff/geetansh", headers=h, json={"lang": "en"}).status_code == 200
+    h = H(c)  # language change keeps the pass
+    it = stock(c, h)
+    NEXT.append(sale(it["id"]))
+    r = say(c, h, "Sharma 250kg 95 credit")
+    assert "credit" in r["reply"] and "Reply 1 save" in r["reply"] and "udhaar" not in r["reply"]
+    r = say(c, h, "1")
+    assert "saved" in r["reply"] and "updated in the app" in r["reply"]
+    assert say(c, h, "thank you")["reply"] == a.R_EN["thanks"]
+    NEXT.append({"actions": [{"type": "query", "what": "party_balance", "party": "Sharma Packers"}]})
+    assert "owes us ₹23,750" in say(c, h, "Sharma due?")["reply"]
+    for v in a.R_EN.values():
+        assert not any(w in v.lower() for w in ("udhaar", "kijiye", "bhejiye", " ji ")), v
+
+
+def test_unlimited_ai_never_blocks(env):
+    c, *_ = env
+    os.environ["AI_UNLIMITED"] = "1"
+    os.environ["AI_LIMITS"] = '{"Owner": {"commands": 1}}'
+    try:
+        h = H(c)
+        for _ in range(4):
+            NEXT.append({"actions": [{"type": "query", "what": "today"}]})
+            assert "limit" not in say(c, h, "aaj sale?")["reply"].lower()
+    finally:
+        os.environ.pop("AI_UNLIMITED")
+        os.environ.pop("AI_LIMITS")

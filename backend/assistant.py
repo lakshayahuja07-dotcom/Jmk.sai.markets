@@ -49,7 +49,7 @@ poly / polyester / PET = Polyester
 
 # Every fixed reply the bot can send, in one place (respectful Hinglish: aap, ji, kijiye).
 # The reply book in the project lists these with when each one is sent. Change wording here only.
-R = {
+R_HI = {
     "empty": "Ji, boliye ya likhiye. Jaise: 'Sharma ji ko BOPP 20 micron 250 kg, 95 rate, udhaar'.",
     "help": "Ji, chhota sa likhiye ya boliye: 'Sharma 250kg 95 udhaar' · 'Euro 40 roll BOPP 20 aaya' · 'Gupta 15000 aaye' · 'Sharma baaki?' · 📷 roll photo.\nPoori list ke liye 'help detail' likhiye.",
     "help_detail": ("Namaste ji 🙏 Main JMK ka AI sahayak hoon. Aap mujhe likh kar, bol kar ya photo bhej kar yeh kaam de sakte hain:\n"
@@ -107,16 +107,108 @@ R = {
     "abuse": "Ji, main samajh sakta hoon aap pareshan hain 🙏 Bataiye kya galat hua, main theek karne ki koshish karta hoon. Galat entry ho to 'undo' likhiye.",
 }
 
-DETAIL_RE = re.compile(r"\b(detail|details|poora|pura|puri|poori|report|vistar|sab|sabka|list|full)\b", re.I)
+DETAIL_RE = re.compile(r"\b(detail|full report|details|poora|pura|puri|poori|report|vistar|sab|sabka|list|full)\b", re.I)
 
 
 def wants_detail(text: str) -> bool:
     return bool(DETAIL_RE.search(text or ""))
 
 
-SAVE_WORDS = {"1", "save", "haan", "ha", "han", "yes", "ok", "okay", "theek hai", "thik hai", "sahi hai", "kar do", "kardo", "done"}
-CANCEL_WORDS = {"3", "cancel", "nahi", "nahin", "no", "rehne do", "chhodo", "mat karo"}
-CHANGE_WORDS = {"2", "change", "badlo", "galat", "galat hai", "edit"}
+# The same replies in simple English (for owners who prefer English). Same keys as R_HI.
+R_EN = {
+    "empty": "Please type or say it. For example: 'Sharma 250kg 95 credit'.",
+    "help": "Just type or say it short: 'Sharma 250kg 95 credit' · 'Euro 40 rolls BOPP 20 came' · 'Gupta paid 15000' · 'Sharma due?' · 📷 roll photo.\nFor the full list, type 'help detail'.",
+    "help_detail": ("Hello 🙏 I am the JMK assistant. Type, speak or send a photo:\n"
+                    "• Sale: 'Sharma 250kg BOPP 20, rate 95, credit'\n"
+                    "• Goods came: 'Euro Films 40 rolls polyester 36, 1.5 lakh credit'\n"
+                    "• Payment: 'Gupta paid 15000 by UPI'\n"
+                    "• Ask: 'Sharma due?', 'BOPP 20 stock?', 'Today sale?'\n"
+                    "• Mistake: 'undo' removes your last entry\n"
+                    "• 📷 Roll photo: I tell you which film it is\n"
+                    "I always show the entry first. It saves only when you send 1."),
+    "thanks": "You're welcome 🙏 Anything else?",
+    "greet": "Hello 🙏 What would you like to do? A sale, goods in, a payment, or ask someone's due.",
+    "labour_need_photo": "Hello 🙏 Please send a clear photo of the roll (label too if possible). I will tell you which film it is.",
+    "labour_only": "Sorry, this number can only identify material. For sales or accounts, please speak to " + os.environ.get("OWNER_NAME", "Geetansh").split()[0] + ".",
+    "saved_tail": "updated in the app",
+    "cancelled": "Okay, cancelled. Nothing was saved.",
+    "change_what": "Sure, what should I change? Just tell me that part, like 'rate was 92' or 'party is Gupta'.",
+    "no_draft": "There is nothing waiting to be saved. Please send a new entry.",
+    "draft_expired": "That entry is older than 30 minutes, so I did not save it. Please send it again.",
+    "ai_off": "Sorry, the assistant is not switched on yet. Please use the app buttons for now.",
+    "ai_busy": "Sorry, the assistant is not answering right now. Please try again in a little while, or use the app buttons.",
+    "limit": "Sorry, today's assistant limit is used up. The app buttons still work. Sai Markets can raise the limit.",
+    "not_understood": "Sorry, I didn't get that. You can ask for a party's due, an item's stock, or today's sale. Type 'help' for the list.",
+    "ask_item_new": "Which material? Tell me the film, micron and grade (A/B/C). For example: BOPP 20 micron A grade.",
+    "ask_item_pick": "Which item? {options}",
+    "item_missing": "I could not find this item in stock. Please add it as goods in first, or tell me the full name (film, micron, grade).",
+    "ask_rate": "What was the rate for {item}? (₹ per {unit})",
+    "ask_kg": "What was the weight on the scale? (kg)",
+    "ask_rolls_out": "How many rolls went out?",
+    "ask_pay": "Cash or credit?",
+    "ask_credit_party": "Credit to which party? Please tell me the name.",
+    "ask_rolls_in": "How many rolls came in?",
+    "ask_supplier": "For goods on credit, please tell me the supplier's name and the total amount.",
+    "ask_pay_party": "Which party is this payment for?",
+    "ask_amount": "How much money?",
+    "undo_none": "I could not find any entry of yours to undo.",
+    "undo_done": "↩️ Undone. Stock and accounts are back as before",
+    "not_saved": "❌ Not saved: {why}",
+    "bad_number": "❌ Not saved: a number looks wrong. Please send it again.",
+    "party_due": "{name}: {side} {amount}",
+    "party_settled": "{name}: all settled ✅",
+    "party_missing": "I could not find a party called '{name}'. Please check the spelling.",
+    "today": "Today's sale: {amount} ({n} sale)",
+    "dues_none": "Nobody owes anything ✅",
+    "stock_empty": "The stock looks empty right now.",
+    "voice_off": "Sorry, voice is not switched on yet. Please type.",
+    "voice_empty": "I could not hear anything. Please speak again, a little closer.",
+    "voice_long": "This voice note is too long. Please keep it under 1 minute.",
+    "heard": "🎙️ I heard: {text}",
+    "photo_off": "Sorry, photo identification is not switched on yet.",
+    "photo_bad": "The photo is not clear. Please send a close photo of the roll label in good light.",
+    "unknown_number": "Hello 🙏 This is JMK Traders' private number. See our stock here: https://jmk.sai.markets",
+    "unsupported": "Right now I understand text, voice notes and photos only. Please send one of these.",
+    "error": "Sorry, something went wrong. Please send it again, or use the app.",
+    "abuse": "I understand you are upset 🙏 Tell me what went wrong and I will fix it. For a wrong entry, type 'undo'.",
+}
+
+import contextvars  # noqa: E402
+_LANG = contextvars.ContextVar("lang", default="hi")
+
+
+def set_lang(user) -> str:
+    """English for people set to English (owner by default via OWNER_LANG), Hinglish otherwise."""
+    lang = (user or {}).get("lang") or (os.environ.get("OWNER_LANG", "en") if (user or {}).get("role") in ("Owner", "Sai Markets Super Admin") else "hi")
+    _LANG.set("en" if lang == "en" else "hi")
+    return _LANG.get()
+
+
+def en() -> bool:
+    return _LANG.get() == "en"
+
+
+def L(hi: str, en_text: str) -> str:
+    return en_text if en() else hi
+
+
+class _Book(dict):
+    def __getitem__(self, k):
+        return (R_EN if en() else R_HI)[k]
+
+    def values(self):
+        return (R_EN if en() else R_HI).values()
+
+    def keys(self):
+        return R_HI.keys()
+
+
+R = _Book()
+
+
+SAVE_WORDS = {"1", "save", "yes save", "confirm", "haan", "ha", "han", "yes", "ok", "okay", "theek hai", "thik hai", "sahi hai", "kar do", "kardo", "done"}
+CANCEL_WORDS = {"3", "cancel", "leave it", "stop", "nahi", "nahin", "no", "rehne do", "chhodo", "mat karo"}
+CHANGE_WORDS = {"2", "change", "wrong", "edit it", "badlo", "galat", "galat hai", "edit"}
 THANKS_WORDS = {"thanks", "thank you", "thank u", "shukriya", "dhanyavad", "dhanyawad", "thx", "ty"}
 HELP_WORDS = {"help", "madad", "kya kar sakte ho", "menu", "?", "options"}
 GREET_WORDS = {"hi", "hello", "namaste", "namaskar", "hey", "hii", "ram ram", "jai shri krishna", "good morning", "gm"}
@@ -256,6 +348,8 @@ async def understand(text: str, previous: Optional[Dict[str, Any]] = None) -> Tu
             kind = "work"
     ctx = await context_text()
     msg = f"{ctx}\n\nTODAY: {datetime.now(IST).strftime('%d %b %Y')}\n\n"
+    msg += ("REPLY LANGUAGE for any question or chat: simple everyday English, short, polite, no technical words.\n" if en()
+            else "REPLY LANGUAGE for any question or chat: respectful Hinglish.\n")
     if previous:
         msg += f"YOUR EARLIER READING: {json.dumps(previous, ensure_ascii=False)}\nTHE OWNER CORRECTS IT: {text}\nReturn the full corrected JSON."
     else:
@@ -386,29 +480,29 @@ async def preview(acts: List[Dict[str, Any]]) -> str:
             before = stock.get(a["item_id"], a["stock_before"])
             stock[a["item_id"]] = before - a["rolls"]
             qty = f'{a["kg"]:g} kg' if a["unit"] == "kg" else f'{a["rolls"]} roll'
-            lines.append(f'🧾 {a["party"] or "Cash sale"} · {a["item_label"]} · {qty} × ₹{a["rate"]:g} = {rs(a["amount"])} {"udhaar" if a["pay"] == "credit" else "cash"}')
+            lines.append(f'🧾 {a["party"] or L("Cash sale", "Cash sale")} · {a["item_label"]} · {qty} × ₹{a["rate"]:g} = {rs(a["amount"])} {L("udhaar", "credit") if a["pay"] == "credit" else "cash"}')
             eff = f'Stock {before}→{stock[a["item_id"]]}' + (" ⚠️" if stock[a["item_id"]] < 0 else "")
             if a["pay"] == "credit":
                 b = await _balance(a["party"], "buyer")
-                eff += f' · Khata {rs((b or 0) + a["amount"])}' + ("" if b is not None else " (nayi party)")
+                eff += f' · {L("Khata", "Due")} {rs((b or 0) + a["amount"])}' + ("" if b is not None else L(" (nayi party)", " (new party)"))
             effects.append(eff)
         elif a["type"] == "stock_in":
             before = stock.get(a["item_id"], a["stock_before"])
             stock[a["item_id"]] = before + a["rolls"]
-            lines.append(f'📦 Maal aaya · {a["item_label"]} · +{a["rolls"]} roll' + (f' · {a["supplier"]}' if a["supplier"] else "")
-                         + (f' · {rs(a["amount"])} {"udhaar" if a["pay"] == "credit" else "paid"}' if a["amount"] else ""))
+            lines.append(f'📦 {L("Maal aaya", "Goods in")} · {a["item_label"]} · +{a["rolls"]} roll' + (f' · {a["supplier"]}' if a["supplier"] else "")
+                         + (f' · {rs(a["amount"])} {L("udhaar", "credit") if a["pay"] == "credit" else "paid"}' if a["amount"] else ""))
             effects.append(f'Stock {before}→{stock[a["item_id"]]}')
         elif a["type"] == "payment":
             kind = "buyer" if a["direction"] == "in" else "supplier"
             b = await _balance(a["party"], kind)
-            lines.append(f'💰 {a["party"]} {"ne diye" if a["direction"] == "in" else "ko diye"} {rs(a["amount"])} · {a["mode"].upper() if a["mode"] == "upi" else a["mode"]}')
+            lines.append(f'💰 {a["party"]} {(L("ne diye", "paid us") if a["direction"] == "in" else L("ko diye", "paid by us"))} {rs(a["amount"])} · {a["mode"].upper() if a["mode"] == "upi" else a["mode"]}')
             if b is not None:
-                effects.append(f'{"Baaki" if kind == "buyer" else "Dena"} {rs(b)}→{rs(b - a["amount"])}')
+                effects.append(f'{L("Baaki", "Due") if kind == "buyer" else L("Dena", "We owe")} {rs(b)}→{rs(b - a["amount"])}')
         elif a["type"] == "undo":
             lines.append(f'↩️ Undo: {a["label"]}')
     if effects:
         lines.append(" · ".join(effects))
-    lines.append("1 save · 2 change · 3 cancel")
+    lines.append(L("1 save · 2 change · 3 cancel", "Reply 1 save · 2 change · 3 cancel"))
     return "\n".join(lines)
 
 
@@ -432,7 +526,7 @@ async def run_actions(acts: List[Dict[str, Any]], user, channel: str, said: str)
                 continue
             eid = r["entry"]["id"]
             await _db.entries.update_one({"id": eid}, {"$set": {"via": channel, "said": said[:500]}})
-            done.append("✅ " + {"sale": "Sale", "stock_in": "Maal", "payment": "Payment"}[a["type"]] + (f' {rs(r["entry"]["amount"])}' if r["entry"].get("amount") else "") + " save")
+            done.append("✅ " + {"sale": "Sale", "stock_in": L("Maal", "Goods"), "payment": "Payment"}[a["type"]] + (f' {rs(r["entry"]["amount"])}' if r["entry"].get("amount") else "") + L(" save", " saved"))
         except HTTPException as e:
             done.append(R["not_saved"].format(why=e.detail))
         except ValidationError:
@@ -448,7 +542,7 @@ async def answer(q: Dict[str, Any], detail: bool = False) -> str:
         for kind in ("buyer", "supplier"):
             b = await _balance(name, kind)
             if b is not None:
-                return R["party_due"].format(name=name, side="lena baaki" if kind == "buyer" else "dena baaki", amount=rs(b)) if b else R["party_settled"].format(name=name)
+                return R["party_due"].format(name=name, side=L("lena baaki", "owes us") if kind == "buyer" else L("dena baaki", "we owe"), amount=rs(b)) if b else R["party_settled"].format(name=name)
         return R["party_missing"].format(name=name)
     if what == "item_stock":
         try:
@@ -471,16 +565,16 @@ async def answer(q: Dict[str, Any], detail: bool = False) -> str:
         if not rows:
             return R["dues_none"]
         top = rows if detail else rows[:3]
-        more = "" if detail or len(rows) <= 3 else f"\n+{len(rows) - 3} aur · poori list ke liye 'baaki detail'"
-        return f"Kul baaki {rs(sum(v for v, _ in rows))}: " + ", ".join(f"{n} {rs(v)}" for v, n in top) + more if not detail else "Sabka baaki:\n" + "\n".join(f"• {n}: {rs(v)}" for v, n in rows)
+        more = "" if detail or len(rows) <= 3 else L(f"\n+{len(rows) - 3} aur · poori list ke liye 'baaki detail'", f"\n+{len(rows) - 3} more · for the full list: 'dues detail'")
+        return L("Kul baaki", "Total due") + f" {rs(sum(v for v, _ in rows))}: " + ", ".join(f"{n} {rs(v)}" for v, n in top) + more if not detail else L("Sabka baaki:\n", "All dues:\n") + "\n".join(f"• {n}: {rs(v)}" for v, n in rows)
     if what == "stock_list":
         rows = await _db.items.find({"rolls": {"$gt": 0}}, {"_id": 0}).sort("rolls", -1).to_list(500)
         if not rows:
             return R["stock_empty"]
         lab = lambda i: f'{S.item_name(i)} {("%g" % i["micron"]) if i.get("micron") else ""} {i["grade"]}'.replace("  ", " ")
         if detail:
-            return "Poora stock:\n" + "\n".join(f'• {lab(i)}: {i["rolls"]} roll' for i in rows)
-        return f'{len(rows)} items, {sum(i["rolls"] for i in rows)} roll. Sabse zyada: ' + ", ".join(f'{lab(i)} ({i["rolls"]})' for i in rows[:3]) + ("\nPoori list: 'stock detail'" if len(rows) > 3 else "")
+            return L("Poora stock:\n", "Full stock:\n") + "\n".join(f'• {lab(i)}: {i["rolls"]} roll' for i in rows)
+        return f'{len(rows)} items, {sum(i["rolls"] for i in rows)} roll. {L("Sabse zyada", "Most")}: ' + ", ".join(f'{lab(i)} ({i["rolls"]})' for i in rows[:3]) + (L("\nPoori list: 'stock detail'", "\nFull list: 'stock detail'") if len(rows) > 3 else "")
     return R["not_understood"]
 
 
@@ -496,6 +590,7 @@ async def open_draft(user) -> Optional[Dict[str, Any]]:
 
 async def handle(user, text: str, channel: str) -> Dict[str, Any]:
     """One message in, one reply out. Used by the app chat and the WhatsApp webhook."""
+    set_lang(user)
     text = (text or "").strip()
     if not text:
         return {"reply": R["empty"]}
@@ -503,12 +598,12 @@ async def handle(user, text: str, channel: str) -> Dict[str, Any]:
     if user.get("role") == "Labour":  # helpers only get material identification, never stock or money
         if await recent_identify(user):
             return await identify(user, channel, note=text)
-        reply = R["labour_need_photo"] if not re.search(r"\b(sale|becha|udhaar|payment|diye|baaki|stock)\b", text.lower()) else R["labour_only"]
+        reply = R["labour_need_photo"] if not re.search(r"\b(sale|sold|becha|udhaar|credit|payment|paid|diye|baaki|due|stock)\b", text.lower()) else R["labour_only"]
         await log_msg(user, channel, "bot", reply)
         return {"reply": reply}
     d = await open_draft(user)
     low0 = text.lower()
-    if not d and await recent_identify(user) and re.search(r"\b(doob|dub|tair|float|sink|kheench|stretch|phat|tear|awaaz|sound|crackle|naram|soft|dhuan|smell|lau|jal|bujh|mani|boond|detail|burn)", low0):
+    if not d and await recent_identify(user) and re.search(r"\b(doob|dub|tair|float|sink|kheench|stretch|phat|tear|awaaz|sound|crackle|naram|soft|dhuan|smell|lau|jal|bujh|mani|boond|detail|burn|sank|floats|floated|stretched|tore|smoke)", low0):
         return await identify(user, channel, note=text)
     low = text.lower().strip(" .!")
     reply: str
@@ -626,6 +721,7 @@ Give at most 3 guesses, best first. Only give micron if printed on the label."""
 
 
 async def identify(user, channel: str, image: bytes = b"", mime: str = "image/jpeg", note: str = "") -> Dict[str, Any]:
+    set_lang(user)
     if not GEMINI_KEY:
         return {"reply": R["photo_off"]}
     from google.genai import types
@@ -634,12 +730,12 @@ async def identify(user, channel: str, image: bytes = b"", mime: str = "image/jp
     reuse = False
     if image:
         parts.append(types.Part.from_bytes(data=image, mime_type=mime))
-        ask = IDENTIFY_RULES + "\n\nWorker's note: " + (note or "(none)")
+        ask = IDENTIFY_RULES + ("\nWrite every text field in simple everyday English." if en() else "") + "\n\nWorker's note: " + (note or "(none)")
     elif prev and re.fullmatch(r"\s*(detail|details|burn test|burn|poora|pura)\s*", note or "", re.I):
         r = prev["result"]
         reuse = True
     else:
-        ask = (IDENTIFY_RULES + "\n\nYOUR EARLIER GUESS: " + json.dumps((prev or {}).get("result", {}), ensure_ascii=False)
+        ask = (IDENTIFY_RULES + ("\nWrite every text field in simple everyday English." if en() else "") + "\n\nYOUR EARLIER GUESS: " + json.dumps((prev or {}).get("result", {}), ensure_ascii=False)
                + "\nTHE WORKER DID A CHECK AND SAYS: " + note + "\nUpdate the guesses. If one is now clear, give only that one with chance High.")
     if not reuse:
         parts.append(ask)
@@ -651,7 +747,7 @@ async def identify(user, channel: str, image: bytes = b"", mime: str = "image/jp
             return {"reply": R["photo_bad"]}
         await _db.identify.insert_one({"user": user["id"], "at": now(), "result": r, "had_photo": bool(image)})
     g = [x for x in (r.get("guesses") or []) if isinstance(x, dict)][:3]
-    sure = {"High": "pakka", "Medium": "shayad", "Low": "pata nahi"}
+    sure = {"High": L("pakka", "sure"), "Medium": L("shayad", "likely"), "Low": L("pata nahi", "not sure")}
     lab = r.get("micron") if r.get("micron") and r.get("micron_from_label") else None
     clear = len(g) == 1 and g[0].get("chance") == "High"
     checks = [c for c in (r.get("checks") or []) if isinstance(c, str)]
@@ -660,33 +756,33 @@ async def identify(user, channel: str, image: bytes = b"", mime: str = "image/jp
         lines = [R["photo_bad"]]
     elif not detail:
         top = g[0]
-        alt = f' ya {g[1].get("film")}' if len(g) > 1 and not clear else ""
-        lines = [f'🔍 {top.get("film")} {top.get("kind") or ""}{alt} ({sure.get(top.get("chance"), "shayad")})'.replace("  ", " ") + (f' · {lab:g} mic' if lab else "")]
+        alt = f' {L("ya", "or")} {g[1].get("film")}' if len(g) > 1 and not clear else ""
+        lines = [f'🔍 {top.get("film")} {top.get("kind") or ""}{alt} ({sure.get(top.get("chance"), sure["Medium"])})'.replace("  ", " ") + (f' · {lab:g} mic' if lab else "")]
         if not clear and checks:
-            lines.append("Check: " + checks[0])
+            lines.append(L("Check: ", "Check: ") + checks[0])
         if not clear:
-            lines.append("Aur check ya 🔥 burn test: 'detail' likhiye")
+            lines.append(L("Aur check ya 🔥 burn test: 'detail' likhiye", "More checks or 🔥 burn test: type 'detail'"))
     else:
-        lines = ["🔍 Ji, yeh maal shayad:"]
+        lines = [L("🔍 Ji, yeh maal shayad:", "🔍 This is likely:")]
         for i, x in enumerate(g, 1):
-            lines.append(f'{i}. {x.get("film", "?")} {x.get("kind") or ""} ({sure.get(x.get("chance"), "shayad")}) · {x.get("why", "")}'.replace("  ", " "))
+            lines.append(f'{i}. {x.get("film", "?")} {x.get("kind") or ""} ({sure.get(x.get("chance"), sure["Medium"])}) · {x.get("why", "")}'.replace("  ", " "))
         if lab:
-            lines.append(f"Label par micron: {lab:g}")
+            lines.append(L("Label par micron: ", "Micron on label: ") + f"{lab:g}")
         if r.get("label"):
             lines.append(f'Label: {r["label"]}')
         if checks:
-            lines.append("Check kijiye:")
+            lines.append(L("Check kijiye:", "Please check:"))
             lines += [f"• {c}" for c in checks[:3]]
         if r.get("burn"):
-            lines.append("🔥 Burn test (bahar, chhota tukda, dhuan saans mein nahi): " + str(r["burn"]))
-        lines.append("Jo dikha woh bhejiye, jaise 'doob gaya' ya 'kaala dhuan'.")
+            lines.append(L("🔥 Burn test (bahar, chhota tukda, dhuan saans mein nahi): ", "🔥 Burn test (outside, small piece, don't breathe the smoke): ") + str(r["burn"]))
+        lines.append(L("Jo dikha woh bhejiye, jaise 'doob gaya' ya 'kaala dhuan'.", "Tell me what you saw, like 'it sank' or 'black smoke'."))
     if g and detail:
         q: Dict[str, Any] = {"film": g[0].get("film")}
         if lab:
             q["micron"] = float(lab)
         same = await _db.items.find(q, {"_id": 0}).to_list(3)
         if same:
-            lines.append("Godown mein aisa maal: " + "; ".join(f'{S.item_name(i)} {("%g" % i["micron"]) + " mic" if i.get("micron") else ""} {i["grade"]} ({i.get("rolls", 0)} roll)' for i in same))
+            lines.append(L("Godown mein aisa maal: ", "Same stock in godown: ") + "; ".join(f'{S.item_name(i)} {("%g" % i["micron"]) + " mic" if i.get("micron") else ""} {i["grade"]} ({i.get("rolls", 0)} roll)' for i in same))
     reply = "\n".join(lines)
     await log_msg(user, channel, "bot", reply)
     return {"reply": reply, "state": "identify"}
@@ -706,6 +802,7 @@ class ChatIn(BaseModel):
 
 @router.post("/ai/chat")
 async def chat(body: ChatIn, user=Depends(current_user)):
+    set_lang(user)
     text = body.text
     if body.image:
         raw = S._shrink(S._decode(body.image))

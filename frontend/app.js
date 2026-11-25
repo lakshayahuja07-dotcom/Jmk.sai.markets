@@ -209,7 +209,7 @@ function Home({ me, toast }) {
       <a class="logo" href="#/more" aria-label="More options" style="text-decoration:none">JMK</a>
     </div>
     ${err ? html`<div class="err">${err}</div>` : ''}
-    <a class="askbar" href="#/ai">${Ico.mic}<span>Boliye: “Sharma 250kg 95 udhaar”</span></a>
+    <a class="askbar" href="#/ai">${Ico.mic}<span>${(me?.lang || 'en') === 'en' ? 'Say it: “Sharma 250kg 95 credit”' : 'Boliye: “Sharma 250kg 95 udhaar”'}</span></a>
     <div class="dark stack" style="gap:4px"><span class="small muted">Sold today</span><span class="big num">${s ? rs(s.sold_today) : '…'}</span>
       <span class="small" style="color:var(--mint)">${s ? `${s.sales_today} sale${s.sales_today === 1 ? '' : 's'}${s.kg_today ? ` · ${s.kg_today.toLocaleString('en-IN')} kg out` : ''} · ${s.rolls_in_stock} rolls in stock` : ''}</span></div>
     <div class="grid2">
@@ -579,7 +579,8 @@ async function startRec() {
 }
 
 /* ---------- AI employee: type, speak or send a photo ---------- */
-function Assistant() {
+function Assistant({ me }) {
+  const english = (me?.lang || (me?.role === 'Owner' || me?.role === 'Sai Markets Super Admin' ? 'en' : 'hi')) === 'en';
   const [msgs, setMsgs] = useState([]);
   const [flags, setFlags] = useState({ ai_on: true, voice_on: true });
   const [text, setText] = useState('');
@@ -624,15 +625,21 @@ function Assistant() {
     <${Top} title="AI employee"/>
     <div class="pad stack" style="padding-bottom:8px;gap:10px;flex:1">
       ${!flags.ai_on ? html`<div class="err">AI is not switched on yet. Ask Sai Markets.</div>` : ''}
-      ${!msgs.length ? html`<div class="card stack" style="gap:6px"><b>Chhota sa boliye ya likhiye:</b>
+      ${!msgs.length ? (english ? html`<div class="card stack" style="gap:6px"><b>Just type or say it, short:</b>
+        <span class="small muted">"Sharma 250kg 95 credit"</span>
+        <span class="small muted">"Euro 40 rolls BOPP 20 came"</span>
+        <span class="small muted">"Gupta paid 15000 UPI"</span>
+        <span class="small muted">"Sharma due?" · "Today sale?" · "undo"</span>
+        <span class="small muted">📷 Roll photo: which film is it</span>
+        <span class="tiny muted">Nothing is saved until you press 1 · Save.</span></div>` : html`<div class="card stack" style="gap:6px"><b>Chhota sa boliye ya likhiye:</b>
         <span class="small muted">"Sharma 250kg 95 udhaar"</span>
         <span class="small muted">"Euro 40 roll BOPP 20 aaya"</span>
         <span class="small muted">"Gupta 15000 aaye UPI"</span>
         <span class="small muted">"Sharma baaki?" · "Aaj sale?" · "undo"</span>
         <span class="small muted">📷 Roll photo: kaunsa maal hai</span>
-        <span class="tiny muted">Nothing is saved until you press 1 · Save.</span></div>` : ''}
+        <span class="tiny muted">"1 · Save" dabane tak kuch save nahi hota.</span></div>`) : ''}
       ${msgs.map((m) => html`<div class=${'bubble ' + (m.who === 'bot' ? 'bot' : 'me')}>${m.text}${m.channel === 'whatsapp' ? html`<span class="via">WhatsApp</span>` : ''}</div>`)}
-      ${busy ? html`<div class="bubble bot muted">Soch raha hoon…</div>` : ''}
+      ${busy ? html`<div class="bubble bot muted">${english ? 'Thinking…' : 'Soch raha hoon…'}</div>` : ''}
       ${err ? html`<div class="err">${err}</div>` : ''}
       <div ref=${end}></div>
     </div>
@@ -641,7 +648,7 @@ function Assistant() {
       <div class="row">
         <input type="file" accept="image/*" capture="environment" ref=${cam} onChange=${photo} hidden/>
         <button class="icon" onClick=${() => cam.current.click()} aria-label="Send a photo of a roll" disabled=${busy}>${Ico.cam}</button>
-        <input class="in" style="flex:1" value=${text} onInput=${(e) => setText(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') sendText(); }} placeholder=${rec ? 'Listening… tap ■ to send' : 'Type here…'} aria-label="Message" disabled=${!!rec}/>
+        <input class="in" style="flex:1" value=${text} onInput=${(e) => setText(e.target.value)} onKeyDown=${(e) => { if (e.key === 'Enter') sendText(); }} placeholder=${rec ? 'Listening… tap ■ to send' : (english ? 'Type here…' : 'Yahan likhiye…')} aria-label="Message" disabled=${!!rec}/>
         ${text.trim() ? html`<button class="btn sm" onClick=${() => sendText()} disabled=${busy}>Send</button>`
           : html`<button class=${'icon mic' + (rec ? ' on' : '')} onClick=${mic} aria-label=${rec ? 'Stop and send' : 'Speak'} disabled=${busy || !flags.voice_on}>${rec ? '■' : Ico.mic}</button>`}
       </div>
@@ -673,7 +680,7 @@ function App() {
     case 'party': page = html`<${Party} id=${parts[1]} toast=${toast} shop=${shop}/>`; break;
     case 'pay': page = html`<${Pay} toast=${toast}/>`; break;
     case 'items': page = html`<${Items} toast=${toast}/>`; break;
-    case 'ai': page = html`<${Assistant}/>`; break;
+    case 'ai': page = html`<${Assistant} me=${me}/>`; break;
     case 'more': page = html`<${More} me=${me} onOut=${out} toast=${toast}/>`; break;
     default: page = html`<div class="wrap pad"><div class="empty">Page not found. <a href="#/">Go to stock</a></div></div>`;
   }

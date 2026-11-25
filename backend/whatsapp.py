@@ -104,6 +104,7 @@ async def process(m: dict):
     if not user:
         await send_text(sender, assistant.R["unknown_number"])
         return
+    assistant.set_lang(user)
     try:
         kind = m.get("type")
         if kind == "text":

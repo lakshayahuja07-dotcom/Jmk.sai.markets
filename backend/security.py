@@ -266,7 +266,13 @@ async def in_grace() -> bool:
 
 
 async def charge_ai(user: Dict[str, Any], kind: str):
-    """Count one AI use for a staff member (daily count per person + shop budget). SUPER is never limited."""
+    """Count one AI use for a staff member (daily count per person + shop budget). SUPER is never limited.
+    AI_UNLIMITED=1 on the server: no daily or monthly cap at all for this shop (uses are still logged for Sai Markets)."""
+    if os.environ.get("AI_UNLIMITED") == "1":
+        await bump(f"ai:{kind}:{user['id']}", None)
+        await bump("spend:unlimited", None, "month", by=COST_PAISE.get(kind, 0))
+        await _db.ai_log.insert_one({"by": user["id"], "kind": kind, "at": datetime.now(timezone.utc).isoformat()})
+        return
     # grace covers reading/text work only; paid picture work (cutouts, upscaling, AI pictures) is never uncapped
     pic = kind in ("cutouts", "illustrations")
     grace = await in_grace()
@@ -352,13 +358,13 @@ async def login(body: LoginIn, request: Request):
     await _db.staff.update_one({"id": rec["id"]}, {"$set": {"fails": 0, "locked_until": 0}})
     if rec.get("role") != SUPER and await locked_now():
         raise HTTPException(403, "LOCKED")
-    me = {k: rec.get(k) for k in ("id", "name", "role", "series", "secret")}
+    me = {k: rec.get(k) for k in ("id", "name", "role", "series", "secret", "lang")}
     return {"token": make_token(rec), "me": me}
 
 
 @router.get("/auth/me")
 async def who_am_i(user=Depends(current_user)):
-    return {"me": {k: user.get(k) for k in ("id", "name", "role", "series", "secret")}}
+    return {"me": {k: user.get(k) for k in ("id", "name", "role", "series", "secret", "lang")}}
 
 
 # ---------------- team (owner adds / switches off salesmen) ----------------
@@ -370,6 +376,7 @@ class StaffIn(BaseModel):
 class StaffPatch(BaseModel):
     name: Optional[str] = Field(default=None, max_length=40)
     wa_phone: Optional[str] = Field(default=None, pattern=r"^\d{0,13}$")  # WhatsApp number that may talk to the bot as this person
+    lang: Optional[str] = Field(default=None, pattern="^(en|hi)$")  # bot reply language: en = simple English, hi = Hinglish
     pin: Optional[str] = None
     active: Optional[bool] = None
 
@@ -425,6 +432,8 @@ async def staff_edit(sid: str, body: StaffPatch, user=Depends(need(OWNER))):
     upd: Dict[str, Any] = {}
     if body.name is not None and body.name.strip():
         upd["name"] = body.name.strip()
+    if body.lang is not None:
+        upd["lang"] = body.lang
     if body.wa_phone is not None:
         if user["role"] != SUPER:
             raise HTTPException(403, "Only Sai Markets can link a WhatsApp number")
