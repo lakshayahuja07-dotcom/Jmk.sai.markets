@@ -33,7 +33,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 import security  # noqa: E402
-from security import current_user, need, charge_ai, SUPER, OWNER  # noqa: E402
+from security import current_user, need, charge_ai, accounts_user, ACCOUNTS, SUPER, OWNER  # noqa: E402
 
 client = AsyncIOMotorClient(os.environ['MONGO_URL'])
 db = client[os.environ.get('DB_NAME') or 'jmk']
@@ -301,11 +301,13 @@ async def parties_list(kind: str = "buyer", user=Depends(current_user)):
         r["balance"] = bal.get(r["id"], 0)
         r["last_at"] = last.get(r["id"])
     rows.sort(key=lambda r: (-r["balance"], r["name"].lower()))
+    if user["role"] not in ACCOUNTS:  # salesman: names only, for picking a buyer; no balances
+        return {"parties": [{"id": r["id"], "name": r["name"], "kind": r["kind"], "phone": r.get("phone", "")} for r in rows], "total": None}
     return {"parties": rows, "total": sum(max(r["balance"], 0) for r in rows)}
 
 
 @api.get("/parties/{pid}")
-async def party_detail(pid: str, user=Depends(current_user)):
+async def party_detail(pid: str, user=Depends(accounts_user)):
     p = await db.parties.find_one({"id": pid}, {"_id": 0, "key": 0})
     if not p:
         raise HTTPException(404, "Not found")
@@ -515,6 +517,8 @@ async def summary(user=Depends(current_user)):
     async for it in db.items.find({"rolls": {"$gt": 0}}, {"_id": 0, "rolls": 1}):
         rolls += it["rolls"]
     recent = await db.entries.find({"day": day}, {"_id": 0}).sort("at", -1).to_list(20)
+    if user["role"] not in ACCOUNTS:
+        lena = dena = buyers = sups = None
     return {"day": day, "sold_today": sold, "kg_today": round(kg, 1), "sales_today": n, "lena": lena, "dena": dena,
             "buyers_owing": buyers, "suppliers_owed": sups, "rolls_in_stock": rolls, "recent": [entry_out(e) for e in recent]}
 

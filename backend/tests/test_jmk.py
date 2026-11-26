@@ -204,3 +204,20 @@ def test_free_bill_leads_kept_apart_by_site(c):
     assert len(c.get("/api/leads?source=jmk", headers=own).json()["leads"]) == 1
     assert c.get("/api/leads?source=sai", headers=own).status_code == 403
     assert c.get("/api/leads?source=jmk").status_code == 401
+
+
+def test_accounts_only_for_owner_super_and_accountant(c):
+    own = H(c)
+    r = c.post("/api/staff", headers=own, json={"name": "Mehta CA", "pin": "4321", "role": "Accountant"})
+    assert r.status_code == 200, r.text
+    acc_id = r.json()["staff"]["id"]
+    r = c.post("/api/staff", headers=own, json={"name": "Ravi", "pin": "5678"})
+    assert r.status_code == 200 and r.json()["staff"]["role"] == "Salesman"
+    sal = H(c, r.json()["staff"]["id"], "5678")
+    acc = H(c, acc_id, "4321")
+    assert c.get("/api/parties?kind=buyer", headers=acc).status_code == 200
+    assert c.get("/api/summary", headers=acc).json()["lena"] is not None
+    assert c.get("/api/summary", headers=sal).json()["lena"] is None
+    assert c.get("/api/parties?kind=buyer", headers=sal).json()["total"] is None
+    assert c.post("/api/stock-in", headers=acc, json={"item": BOPP, "rolls": 5}).status_code == 403
+    assert c.post("/api/staff", headers=own, json={"name": "X", "pin": "1234", "role": "Owner"}).status_code == 422

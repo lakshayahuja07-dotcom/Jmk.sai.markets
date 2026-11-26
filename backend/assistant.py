@@ -595,6 +595,10 @@ async def handle(user, text: str, channel: str) -> Dict[str, Any]:
     if not text:
         return {"reply": R["empty"]}
     await log_msg(user, channel, "owner", text)
+    if user.get("role") == "Accountant":  # view-only login: the chat can change stock and khata, so it is closed to the accountant
+        reply = "The accountant login is view only. Please use the Accounts screen in the app."
+        await log_msg(user, channel, "bot", reply)
+        return {"reply": reply}
     if user.get("role") == "Labour":  # helpers only get material identification, never stock or money
         if await recent_identify(user):
             return await identify(user, channel, note=text)

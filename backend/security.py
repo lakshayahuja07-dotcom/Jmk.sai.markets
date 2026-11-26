@@ -21,6 +21,8 @@ from fastapi import APIRouter, HTTPException, Request, Depends, Body
 from pydantic import BaseModel, Field
 
 SUPER, OWNER, SALESMAN = "Sai Markets Super Admin", "Owner", "Salesman"
+ACCOUNTANT = "Accountant"  # view-only: accounts (khata, payments, sales history). Cannot record or change anything.
+ACCOUNTS = ("Sai Markets Super Admin", "Owner", "Accountant")  # who may see the accounts section
 LABOUR = "Labour"  # WhatsApp-only helper: can ask the bot to identify material, nothing else. Has no PIN, so can never sign in to the app.
 RANK = {SALESMAN: 1, OWNER: 2, SUPER: 3}
 TOKEN_HOURS = 24 * 7  # stay signed in for a week; the owner can end a pass at once by switching someone off or changing their PIN
@@ -156,6 +158,14 @@ async def current_user(request: Request, user=Depends(optional_user)) -> Dict[st
         if getattr(request.state, "locked", False):
             raise HTTPException(403, "LOCKED")
         raise HTTPException(401, "Please sign in again")
+    if user.get("role") == ACCOUNTANT and request.method not in ("GET", "HEAD") and not request.url.path.startswith("/api/auth"):
+        raise HTTPException(403, "View only: the accountant login can see accounts but not change them.")
+    return user
+
+
+async def accounts_user(user=Depends(current_user)) -> Dict[str, Any]:
+    if user.get("role") not in ACCOUNTS:
+        raise HTTPException(403, "Only the owner, Sai Markets and the accountant can see accounts")
     return user
 
 
@@ -197,6 +207,7 @@ async def bump(key: str, limit: Optional[int], window: str = "day", by: int = 1)
 # illustrations = AI-drawn picture (only for products with no photo), cutouts = background removal (free, runs on our server)
 DEFAULT_LIMITS = {
     SALESMAN: {"reads": 20, "catalogues": 2, "cutouts": 60, "illustrations": 1, "commands": 150},
+    ACCOUNTANT: {"reads": 0, "catalogues": 0, "cutouts": 0, "illustrations": 0, "commands": 0},
     OWNER: {"reads": 40, "catalogues": 5, "cutouts": 120, "illustrations": 3, "commands": 300},
     SUPER: {"reads": None, "catalogues": None, "cutouts": None, "illustrations": None, "commands": None},  # first setup: no limit
     "customer_match_per_phone": 2,
@@ -371,6 +382,7 @@ async def who_am_i(user=Depends(current_user)):
 class StaffIn(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     pin: str
+    role: str = Field(default="Salesman", pattern="^(Salesman|Accountant)$")
 
 
 class StaffPatch(BaseModel):
@@ -397,7 +409,7 @@ async def staff_add(body: StaffIn, user=Depends(need(OWNER))):
     if not series:
         raise HTTPException(400, "Team is full")
     h = hash_pin(body.pin)
-    doc = {"id": "s" + secrets.token_hex(5), "name": body.name.strip(), "role": SALESMAN, "series": series, "secret": False,
+    doc = {"id": "s" + secrets.token_hex(5), "name": body.name.strip(), "role": body.role, "series": series, "secret": False,
            "active": True, "ver": 0, "pin_hash": h["hash"], "pin_salt": h["salt"], "fails": 0, "locked_until": 0}
     await _db.staff.insert_one(dict(doc))
     return {"staff": {k: doc[k] for k in ("id", "name", "role", "series", "active")}}
@@ -444,7 +456,7 @@ async def staff_edit(sid: str, body: StaffPatch, user=Depends(need(OWNER))):
         h = hash_pin(body.pin)
         upd.update({"pin_hash": h["hash"], "pin_salt": h["salt"], "fails": 0, "locked_until": 0})
     if body.active is not None:
-        if rec["role"] not in (SALESMAN, LABOUR) and not body.active:
+        if rec["role"] not in (SALESMAN, LABOUR, ACCOUNTANT) and not body.active:
             raise HTTPException(400, "The owner profile cannot be switched off")
         upd["active"] = body.active
     if not upd:

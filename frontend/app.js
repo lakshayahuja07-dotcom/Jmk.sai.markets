@@ -58,6 +58,9 @@ function useRoute() {
   return h.slice(1).split('?')[0] || '/';
 }
 const go = (p) => { location.hash = '#' + p; };
+const ACCOUNTS = ['Sai Markets Super Admin', 'Owner', 'Accountant'];
+const seesAccounts = (me) => ACCOUNTS.includes(me?.role);
+const isAccountant = (me) => me?.role === 'Accountant';
 
 /* ---------- small pieces ---------- */
 const Ico = {
@@ -401,6 +404,7 @@ function Home({ me, toast }) {
     try { await api(`/entries/${e.id}/undo`, { method: 'POST' }); toast('Undone. Stock and khata are back.'); load(); } catch (x) { toast(x.message); }
   };
   const d = new Date();
+  if (isAccountant(me)) return html`<${AccountsHome} me=${me} s=${s} err=${err}/>`;
   return html`<div class="wrap pad stack">
     <div class="row between">
       <div class="stack" style="gap:0"><span class="small muted">${d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}</span><h1>Namaste, ${(me?.name || '').split(' ')[0]}</h1></div>
@@ -410,20 +414,43 @@ function Home({ me, toast }) {
     <a class="askbar" href="#/ai">${Ico.mic}<span>${(me?.lang || 'en') === 'en' ? 'Say it: “Sharma 250kg 95 credit”' : 'Boliye: “Sharma 250kg 95 udhaar”'}</span></a>
     <div class="dark stack" style="gap:4px"><span class="small muted">Sold today</span><span class="big num">${s ? rs(s.sold_today) : '…'}</span>
       <span class="small" style="color:var(--mint)">${s ? `${s.sales_today} sale${s.sales_today === 1 ? '' : 's'}${s.kg_today ? ` · ${s.kg_today.toLocaleString('en-IN')} kg out` : ''} · ${s.rolls_in_stock} rolls in stock` : ''}</span></div>
-    <div class="grid2">
+    ${seesAccounts(me) ? html`<div class="grid2">
       <a class="card stack" style="gap:2px;text-decoration:none;color:inherit" href="#/khata/buyer"><span class="tiny muted">Lena hai (to receive)</span><span class="mid good num">${s ? rs(s.lena) : '…'}</span><span class="tiny muted">${s ? s.buyers_owing + (s.buyers_owing === 1 ? ' buyer' : ' buyers') : ''}</span></a>
       <a class="card stack" style="gap:2px;text-decoration:none;color:inherit" href="#/khata/supplier"><span class="tiny muted">Dena hai (to pay)</span><span class="mid bad num">${s ? rs(s.dena) : '…'}</span><span class="tiny muted">${s ? s.suppliers_owed + (s.suppliers_owed === 1 ? ' supplier' : ' suppliers') : ''}</span></a>
-    </div>
+    </div>` : ''}
     <div class="grid2">
       <a class="tile c" href="#/sale">${Ico.out}Record a sale</a>
       <a class="tile m" href="#/add">${Ico.plus}Add stock</a>
-      <a class="tile g" href="#/khata/buyer">${Ico.book}Khata</a>
+      ${seesAccounts(me) ? html`<a class="tile g" href="#/khata/buyer">${Ico.book}Khata</a>` : ''}
       <a class="tile w" href="#/pay">${Ico.cash}Payment in / out</a>
     </div>
     <a class="btn ghost" href="#/items">${Ico.box} All stock items</a>
     <h3>Today</h3>
     <div class="list">${(s?.recent || []).map((e) => html`<${EntryLine} e=${e} onUndo=${undo}/>`)}
       ${s && !s.recent.length ? html`<div class="empty">Nothing yet today. Record your first sale.</div>` : ''}</div>
+  </div>`;
+}
+
+/* ---------- ACCOUNTANT: view-only home ---------- */
+function AccountsHome({ me, s, err }) {
+  return html`<div class="wrap pad stack">
+    <div class="row between">
+      <div class="stack" style="gap:0"><span class="small muted">Accounts · view only</span><h1>Namaste, ${(me?.name || '').split(' ')[0]}</h1></div>
+      <a class="logo" href="#/more" aria-label="More options" style="text-decoration:none">JMK</a>
+    </div>
+    ${err ? html`<div class="err">${err}</div>` : ''}
+    <${AccountsCards} s=${s}/>
+    <div class="dark stack" style="gap:4px"><span class="small muted">Sold today</span><span class="big num">${s ? rs(s.sold_today) : '…'}</span>
+      <span class="small" style="color:var(--mint)">${s ? `${s.sales_today} sale${s.sales_today === 1 ? '' : 's'}` : ''}</span></div>
+    <h3>Today</h3>
+    <div class="list">${(s?.recent || []).map((e) => html`<${EntryLine} e=${e}/>`)}
+      ${s && !s.recent.length ? html`<div class="empty">Nothing recorded today.</div>` : ''}</div>
+  </div>`;
+}
+function AccountsCards({ s }) {
+  return html`<div class="grid2">
+    <a class="card stack" style="gap:2px;text-decoration:none;color:inherit" href="#/khata/buyer"><span class="tiny muted">Lena hai (to receive)</span><span class="mid good num">${s && s.lena != null ? rs(s.lena) : '…'}</span><span class="tiny muted">Buyers khata</span></a>
+    <a class="card stack" style="gap:2px;text-decoration:none;color:inherit" href="#/khata/supplier"><span class="tiny muted">Dena hai (to pay)</span><span class="mid bad num">${s && s.dena != null ? rs(s.dena) : '…'}</span><span class="tiny muted">Suppliers khata</span></a>
   </div>`;
 }
 
@@ -623,6 +650,7 @@ function Party({ id, toast, shop }) {
     try { await api(`/entries/${e.id}/undo`, { method: 'POST' }); toast('Undone.'); load(); } catch (x) { toast(x.message); }
   };
   const p = d?.party;
+  const viewOnly = (() => { try { return isAccountant(JSON.parse(store.get('jmk_me') || 'null')); } catch (e2) { return false; } })();
   const remind = p && p.phone && p.balance > 0 ? `https://wa.me/${p.phone.length === 10 ? '91' + p.phone : p.phone}?text=${encodeURIComponent(`Namaste ${p.name} ji, ${shop.name || 'JMK Traders'} se. Aapka ${rs(p.balance)} baaki hai. Kripya jab sahi lage bhej dijiye. Dhanyavaad.`)}` : null;
   return html`<div class="wrap">
     <${Top} title=${p ? p.name : 'Khata'} back=${'/khata/' + (p ? p.kind : 'buyer')}/>
@@ -631,9 +659,9 @@ function Party({ id, toast, shop }) {
       ${p ? html`<div class="dark stack" style="gap:4px"><span class="small muted">${p.kind === 'buyer' ? 'Lena hai' : 'Dena hai'}</span><span class="big num">${rs(p.balance)}</span>
         <span class="small muted">${p.phone ? '+' + (p.phone.length === 10 ? '91' + p.phone : p.phone) : 'No number saved'}</span></div>
       <div class="grid2">${remind ? html`<a class="btn wa" href=${remind} target="_blank" rel="noopener">Send reminder</a>` : ''}
-        <a class="btn ghost" href=${'#/pay?' + p.kind + '&' + encodeURIComponent(p.name)}>${p.kind === 'buyer' ? 'Payment in' : 'Payment out'}</a></div>
+        ${viewOnly ? '' : html`<a class="btn ghost" href=${'#/pay?' + p.kind + '&' + encodeURIComponent(p.name)}>${p.kind === 'buyer' ? 'Payment in' : 'Payment out'}</a>`}</div>
       <h3>History</h3>
-      <div class="list" style="gap:8px">${d.entries.map((e) => html`<${EntryLine} e=${e} onUndo=${undo}/>`)}</div>` : html`<p class="muted">Loading…</p>`}
+      <div class="list" style="gap:8px">${d.entries.map((e) => html`<${EntryLine} e=${e} onUndo=${viewOnly ? null : undo}/>`)}</div>` : html`<p class="muted">Loading…</p>`}
     </div>
   </div>`;
 }
@@ -707,10 +735,12 @@ function More({ me, onOut, toast }) {
   const isSuper = me?.role === 'Sai Markets Super Admin';
   const [team, setTeam] = useState([]);
   const [help, setHelp] = useState({ name: '', wa_phone: '' });
+  const [acc, setAcc] = useState({ name: '', pin: '' });
   const [dict, setDict] = useState(null);
   const loadTeam = () => api('/staff').then((d) => setTeam(d.staff)).catch(() => {});
   useEffect(() => { api('/shop').then(setShop).catch(() => {}); loadTeam(); api('/ai/dictionary').then((d) => setDict(d.text)).catch(() => {}); }, []);
   const addHelper = async () => { try { await api('/staff/helper', { method: 'POST', body: { name: help.name, wa_phone: help.wa_phone.replace(/\D/g, '') } }); setHelp({ name: '', wa_phone: '' }); toast('Worker added. Their WhatsApp can now ask what a roll is.'); loadTeam(); } catch (e) { toast(e.message); } };
+  const addAcc = async () => { try { await api('/staff', { method: 'POST', body: { name: acc.name.trim(), pin: acc.pin, role: 'Accountant' } }); setAcc({ name: '', pin: '' }); toast('Accountant added. They sign in with their name and PIN.'); loadTeam(); } catch (e) { toast(e.message); } };
   const off = async (p) => { try { await api('/staff/' + p.id, { method: 'PATCH', body: { active: !p.active } }); loadTeam(); } catch (e) { toast(e.message); } };
   const linkWa = async (p) => { const v = window.prompt('WhatsApp number for ' + p.name + ' (with 91)', p.wa_phone || ''); if (v == null) return; try { await api('/staff/' + p.id, { method: 'PATCH', body: { wa_phone: v.replace(/\D/g, '') } }); toast('WhatsApp linked'); loadTeam(); } catch (e) { toast(e.message); } };
   const saveDict = async () => { try { await api('/ai/dictionary', { method: 'PUT', body: { text: dict } }); toast('Shop words saved'); } catch (e) { toast(e.message); } };
@@ -721,6 +751,16 @@ function More({ me, onOut, toast }) {
     <div class="pad stack">
       <p class="muted" style="margin:0">Signed in as <b>${me?.name}</b></p>
       <a class="btn ghost" href="#/">Open the buyers' stock page</a>
+      ${seesAccounts(me) ? html`<div class="card stack"><h3>Accounts</h3>
+        <p class="small muted" style="margin:0">Khata, who owes what, and payments. Only the owner, Sai Markets and the accountant can see this.</p>
+        <div class="grid2"><a class="btn ghost" href="#/khata/buyer">Buyers · lena</a><a class="btn ghost" href="#/khata/supplier">Suppliers · dena</a></div>
+        ${isAccountant(me) ? '' : html`<a class="btn ghost" href="#/pay">Record a payment</a>`}</div>` : ''}
+      ${!isAccountant(me) && seesAccounts(me) ? html`<div class="card stack"><h3>Accountant login</h3>
+        <p class="small muted" style="margin:0">A view-only login for your accountant. They see accounts and sales, and can't change anything.</p>
+        ${team.filter((p) => p.role === 'Accountant').map((p) => html`<div class="row between"><span>${p.name}</span><button class="btn ghost sm" onClick=${() => off(p)}>${p.active ? 'Switch off' : 'Switch on'}</button></div>`)}
+        <div class="grid2"><input class="in" placeholder="Name" value=${acc.name} onInput=${(e) => setAcc({ ...acc, name: e.target.value })} aria-label="Accountant name"/>
+          <input class="in" inputmode="numeric" placeholder="PIN (4 or 6 digits)" value=${acc.pin} onInput=${(e) => setAcc({ ...acc, pin: e.target.value.replace(/\D/g, '').slice(0, 6) })} aria-label="Accountant PIN"/></div>
+        <button class="btn ghost" disabled=${!acc.name.trim() || ![4, 6].includes(acc.pin.length)} onClick=${addAcc}>Add accountant</button></div>` : ''}
       ${me?.role === 'Sai Markets Super Admin' || me?.role === 'Owner' ? html`<a class="btn ghost" href="#/leads">Free bill leads</a>` : ''}
       ${isSuper && shop ? html`<div class="card stack"><h3>Shop details (Sai Markets only)</h3>
         <label class="f">Name<input class="in" value=${shop.name} onInput=${set('name')}/></label>
@@ -729,15 +769,15 @@ function More({ me, onOut, toast }) {
         <label class="f">Call number (with 91)<input class="in" inputmode="tel" value=${shop.phone} onInput=${set('phone')} placeholder="9198xxxxxxxx"/></label>
         <label class="f">WhatsApp number for buyers (with 91)<input class="in" inputmode="tel" value=${shop.whatsapp} onInput=${set('whatsapp')} placeholder="9198xxxxxxxx"/></label>
         ${err ? html`<div class="err">${err}</div>` : ''}<button class="btn" onClick=${save}>Save shop details</button></div>` : ''}
-      <div class="card stack"><h3>Godown workers (WhatsApp)</h3>
+      ${isAccountant(me) ? '' : html`<div class="card stack"><h3>Godown workers (WhatsApp)</h3>
         <p class="small muted" style="margin:0">They can send a roll photo to the JMK bot and get told what material it is. They can't see or change stock or money.</p>
         ${team.filter((p) => p.role === 'Labour').map((p) => html`<div class="row between"><span>${p.name} · ${p.wa_phone}</span><button class="btn ghost sm" onClick=${() => off(p)}>${p.active ? 'Switch off' : 'Switch on'}</button></div>`)}
         <div class="grid2"><input class="in" placeholder="Name" value=${help.name} onInput=${(e) => setHelp({ ...help, name: e.target.value })} aria-label="Worker name"/>
           <input class="in" inputmode="tel" placeholder="98xxxxxxxx" value=${help.wa_phone} onInput=${(e) => setHelp({ ...help, wa_phone: e.target.value })} aria-label="Worker WhatsApp number"/></div>
-        <button class="btn ghost" disabled=${!help.name.trim() || help.wa_phone.replace(/\D/g, '').length < 10} onClick=${addHelper}>Add worker</button></div>
+        <button class="btn ghost" disabled=${!help.name.trim() || help.wa_phone.replace(/\D/g, '').length < 10} onClick=${addHelper}>Add worker</button></div>`}
       ${isSuper ? html`<div class="card stack"><h3>WhatsApp bot access (Sai Markets only)</h3>
         ${team.filter((p) => p.role !== 'Labour').map((p) => html`<div class="row between"><span>${p.name}<br/><span class="tiny muted">${p.wa_phone ? '+' + p.wa_phone : 'not linked'}</span></span><button class="btn ghost sm" onClick=${() => linkWa(p)}>${p.wa_phone ? 'Change' : 'Link number'}</button></div>`)}</div>` : ''}
-      ${dict != null ? html`<div class="card stack"><h3>Shop words for the AI</h3>
+      ${dict != null && !isAccountant(me) ? html`<div class="card stack"><h3>Shop words for the AI</h3>
         <p class="small muted" style="margin:0">One per line, like "lobhan = yellow LDPE film". The AI reads these every time.</p>
         <textarea class="in" style="min-height:140px;padding:12px;font-size:15px;font-weight:500" value=${dict} onInput=${(e) => setDict(e.target.value)} aria-label="Shop words"></textarea>
         <button class="btn ghost" onClick=${saveDict}>Save shop words</button></div>` : ''}
@@ -875,7 +915,7 @@ function App() {
     case 'home': page = html`<${Home} me=${me} toast=${toast}/>`; break;
     case 'sale': page = html`<${Sale} toast=${toast}/>`; break;
     case 'add': page = html`<${AddStock} toast=${toast}/>`; break;
-    case 'khata': page = html`<${Khata} kind=${parts[1] === 'supplier' ? 'supplier' : 'buyer'}/>`; break;
+    case 'khata': page = me && !seesAccounts(me) ? html`<div class="wrap pad"><div class="empty">Accounts are only for the owner and the accountant. <a href="#/home">Go home</a></div></div>` : html`<${Khata} kind=${parts[1] === 'supplier' ? 'supplier' : 'buyer'}/>`; break;
     case 'party': page = html`<${Party} id=${parts[1]} toast=${toast} shop=${shop}/>`; break;
     case 'pay': page = html`<${Pay} toast=${toast}/>`; break;
     case 'items': page = html`<${Items} toast=${toast}/>`; break;
