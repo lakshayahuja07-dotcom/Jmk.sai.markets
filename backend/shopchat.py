@@ -6,7 +6,7 @@ A customer types (Hinglish or English) and the AI can:
   * build an order: it fills a cart, and the customer sends it on WhatsApp to the shop.
 
 Safety and cost (the box is open to anyone):
-  * the API key stays on the server; the page only talks to /api/public/chat;
+  * the API key stays on the server (GEMINI_API_KEY, or ANTHROPIC_API_KEY as a fallback); the page only talks to /api/public/chat;
   * per-visitor limits: PUBLIC_CHAT_PER_HOUR (default 15) and PUBLIC_CHAT_PER_DAY (default 40) messages;
   * one daily spend cap for public visitors on both sites together: PUBLIC_CHAT_DAILY_USD (default 0.14,
     about Rs 13 a day, Rs 400 a month). When it is used up, the box says so politely and the pages keep working;
@@ -39,10 +39,12 @@ log = logging.getLogger("jmk.shopchat")
 _db = None
 S = None  # server module
 
+# Which AI answers: Gemini when GEMINI_API_KEY is set (free tier works), otherwise Claude (ANTHROPIC_API_KEY).
+GEMINI_MODEL = os.environ.get("PUBLIC_CHAT_GEMINI_MODEL", "gemini-2.5-flash")
 MODEL = os.environ.get("PUBLIC_CHAT_MODEL", "claude-haiku-5-5")
-# USD per million tokens for the model above (Claude Haiku 5.5 list price, Nov 2026). Used only for the daily cap.
-PRICE_IN = float(os.environ.get("PUBLIC_CHAT_PRICE_IN", "0.10"))
-PRICE_OUT = float(os.environ.get("PUBLIC_CHAT_PRICE_OUT", "0.50"))
+# USD per million tokens (paid list prices, Nov 2026), used only for the daily cap. On Gemini's free tier the real cost is 0.
+PRICES = {"gemini": (float(os.environ.get("PUBLIC_CHAT_GEMINI_PRICE_IN", "0.30")), float(os.environ.get("PUBLIC_CHAT_GEMINI_PRICE_OUT", "2.50"))),
+          "claude": (float(os.environ.get("PUBLIC_CHAT_PRICE_IN", "0.10")), float(os.environ.get("PUBLIC_CHAT_PRICE_OUT", "0.50")))}
 SAI_WHATSAPP = "917678587824"
 SITES = {"sai": "SAI Markets (sai.markets)", "jmk": "JMK Traders (jmk.sai.markets)"}
 GST_RATES = (0, 5, 12, 18, 28)
@@ -53,8 +55,14 @@ def bind(db, server_module):
     _db, S = db, server_module
 
 
+def provider() -> str:
+    if os.environ.get("GEMINI_API_KEY"):
+        return "gemini"
+    return "claude" if os.environ.get("ANTHROPIC_API_KEY") else ""
+
+
 def key() -> str:
-    return os.environ.get("ANTHROPIC_API_KEY", "")
+    return os.environ.get("GEMINI_API_KEY" if provider() == "gemini" else "ANTHROPIC_API_KEY", "")
 
 
 def on() -> bool:
@@ -150,6 +158,8 @@ async def jmk_facts():
 
 # ---------------- model call ----------------
 async def ask_model(system: str, messages: List[Dict[str, str]]) -> Dict[str, Any]:
+    if provider() == "gemini":
+        return await ask_gemini(system, messages)
     async with httpx.AsyncClient(timeout=30) as c:
         r = await c.post("https://api.anthropic.com/v1/messages",
                          headers={"x-api-key": key(), "anthropic-version": "2023-06-01", "content-type": "application/json"},
@@ -159,6 +169,21 @@ async def ask_model(system: str, messages: List[Dict[str, str]]) -> Dict[str, An
     text = "".join(b.get("text", "") for b in d.get("content", []) if b.get("type") == "text")
     u = d.get("usage") or {}
     return {"text": text, "in": int(u.get("input_tokens", 0)), "out": int(u.get("output_tokens", 0))}
+
+
+async def ask_gemini(system: str, messages: List[Dict[str, str]]) -> Dict[str, Any]:
+    from google import genai
+    from google.genai import types
+    g = genai.Client(api_key=key())
+    contents = [types.Content(role="model" if m["role"] == "assistant" else "user", parts=[types.Part(text=m["content"])])
+                for m in messages]
+    cfg = types.GenerateContentConfig(system_instruction=system, temperature=0.2, max_output_tokens=700,
+                                      response_mime_type="application/json",
+                                      thinking_config=types.ThinkingConfig(thinking_budget=0))
+    r = await g.aio.models.generate_content(model=GEMINI_MODEL, contents=contents, config=cfg)
+    u = getattr(r, "usage_metadata", None)
+    return {"text": r.text or "", "in": int(getattr(u, "prompt_token_count", 0) or 0),
+            "out": int(getattr(u, "candidates_token_count", 0) or 0)}
 
 
 def _json(text: str) -> Dict[str, Any]:
@@ -276,7 +301,8 @@ async def chat(body: ChatIn, request: Request, user=Depends(optional_user)):
     except Exception as e:  # network or API error: no charge, polite message
         log.warning("public chat model error: %s", e)
         raise HTTPException(502, "The AI helper could not answer just now. Please try again in a minute.")
-    cost = int(res["in"] * PRICE_IN + res["out"] * PRICE_OUT)  # tokens x $/M tokens = millionths of a dollar
+    pin, pout = PRICES.get(provider(), PRICES["claude"])
+    cost = int(res["in"] * pin + res["out"] * pout)  # tokens x $/M tokens = millionths of a dollar
     await security.bump("pchat:staffspend" if staff else "pchat:spend", None, "day", by=max(cost, 1))
     await log_event(body.site, "chat", cost_micro=cost, who="staff" if staff else "public")
 

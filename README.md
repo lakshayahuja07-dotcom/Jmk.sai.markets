@@ -16,7 +16,7 @@ WhatsApp webhook: `/api/wa/webhook` (off until WA_* settings are filled).
 
 Customer AI chat box (`frontend/chatbox.js`, also used on sai.markets): a bar at the top of the public pages.
 Customers ask it to make a bill (fills the free bill maker) or build an order (cart, sent on WhatsApp to the shop).
-Server side: `backend/shopchat.py`, `/api/public/chat`, Claude Haiku. Visitors: 15 messages an hour, 40 a day, and a
+Server side: `backend/shopchat.py`, `/api/public/chat`, Gemini 2.5 Flash when GEMINI_API_KEY is set, else Claude Haiku. Visitors: 15 messages an hour, 40 a day, and a
 shared daily cap (`PUBLIC_CHAT_DAILY_USD`, default 0.14, about Rs 400 a month). Signed-in owner/super admin: no cap.
 Usage (chats, AI bills, carts, WhatsApp orders, bill PDFs) is in `events`; see it at More > Free bill leads.
 Switch the box off with `PUBLIC_CHAT=off`.

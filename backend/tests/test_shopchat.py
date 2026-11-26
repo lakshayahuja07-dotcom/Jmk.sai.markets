@@ -26,6 +26,7 @@ def c(monkeypatch):
     for k in ("PUBLIC_CHAT", "PUBLIC_CHAT_DAILY_USD", "PUBLIC_CHAT_PER_HOUR", "PUBLIC_CHAT_PER_DAY"):
         os.environ.pop(k, None)
     os.environ["ANTHROPIC_API_KEY"] = "fake"
+    os.environ.pop("GEMINI_API_KEY", None)
     for m in ("server", "security", "leads", "assistant", "whatsapp", "shopchat"):
         sys.modules.pop(m, None)
     server = importlib.import_module("server")
@@ -104,6 +105,18 @@ def test_per_visitor_limit(c):
         assert say(c, "3").status_code == 429
     finally:
         os.environ.pop("PUBLIC_CHAT_PER_HOUR", None)
+
+
+def test_gemini_key_is_used_first(c):
+    sc = sys.modules["shopchat"]
+    os.environ["GEMINI_API_KEY"] = "g"
+    try:
+        assert sc.provider() == "gemini" and sc.key() == "g" and sc.on()
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+        assert sc.on()
+    finally:
+        os.environ.pop("GEMINI_API_KEY", None)
+        os.environ["ANTHROPIC_API_KEY"] = "fake"
 
 
 def test_off_without_key(c):
