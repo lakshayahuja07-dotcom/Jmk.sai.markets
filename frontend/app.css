@@ -105,3 +105,5 @@ details summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:14px
 .billrow{display:grid;grid-template-columns:minmax(0,1fr) 64px 92px 40px;gap:6px;align-items:center}
 #billPrint{display:none}
 @media print{body>*:not(#billPrint){display:none!important}#billPrint{display:block;color:#000;background:#fff;font:14px/1.45 system-ui,sans-serif;padding:24px}#billPrint table{width:100%;border-collapse:collapse;margin-top:14px}#billPrint th,#billPrint td{border-bottom:1px solid #ccc;padding:6px 4px;text-align:left}#billPrint h1{margin:0 0 4px;font-size:22px}#billPrint h2{font-size:16px}}
+.saiban{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:12px;background:#1B1A17;color:#f4f1ea;font-size:14px}
+.saiban a:not(.btn){color:#ffb25b;text-decoration:none}

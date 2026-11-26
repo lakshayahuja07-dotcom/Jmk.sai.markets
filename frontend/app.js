@@ -149,8 +149,18 @@ function Stock() {
     </div>
     ${pickedNow.length && waLink(many()) ? html`<div class="sticky"><a class="btn wa full" href=${waLink(many())} target="_blank" rel="noopener">Send my list on WhatsApp · ${pickedNow.length} item${pickedNow.length > 1 ? 's' : ''}</a></div>` : ''}
     <div class="pad" style="padding-top:20px"><${BillMaker}/></div>
+    <div class="pad" style="padding-top:16px"><${SaiBanner}/></div>
     <footer class="foot">Prices on request. Stock changes daily.<br/><a href="#/login">Staff sign in</a> · Made by <a href="https://sai.markets" target="_blank" rel="noopener">SAImarkets</a></footer>
   </div>`;
+}
+
+/* ---------- PUBLIC: slim promo strip for sai.markets (in the page flow, never covers buttons) ---------- */
+function SaiBanner() {
+  const wa = 'https://wa.me/917678587824?text=' + encodeURIComponent('Hi SAI Markets, I saw the JMK app. I want an app like this for my business.');
+  return html`<aside class="saiban" aria-label="Made by SAI Markets">
+    <span>Made by <a href="https://sai.markets" target="_blank" rel="noopener"><b>SAI.markets</b></a> · get an app like this for your business</span>
+    <a class="btn wa sm" href=${wa} target="_blank" rel="noopener">WhatsApp us</a>
+  </aside>`;
 }
 
 /* ---------- PUBLIC: free bill / quote maker (leads shared with sai.markets, source "jmk") ---------- */
@@ -163,6 +173,20 @@ function BillMaker() {
   const [rows, setRows] = useState([{ n: '', q: '1', r: '' }]);
   const [phErr, setPhErr] = useState(false);
   const [msg, setMsg] = useState('');
+  useEffect(() => { // the AI chat box (chatbox.js) fills this maker; nothing is saved until the shop presses a button
+    const fill = (b) => {
+      if (!b || !Array.isArray(b.items) || !b.items.length) return;
+      setOpen(true); setKind(b.doc_type === 'Quotation' ? 'Quotation' : 'Invoice');
+      setRows(b.items.map((i) => ({ n: String(i.name || ''), q: String(i.qty || 1), r: i.rate ? String(i.rate) : '' })));
+      const g = (b.items.find((i) => i.gst) || {}).gst || 0;
+      setF((o) => ({ ...o, gst: String(g), cust: b.customer || o.cust }));
+      setTimeout(() => document.querySelector('[aria-label="Free bill maker"]')?.scrollIntoView({ behavior: 'smooth' }), 80);
+    };
+    window.SM_BILL_FILL = fill;
+    try { const p = JSON.parse(localStorage.getItem('sm_ai_bill') || 'null'); if (p) { localStorage.removeItem('sm_ai_bill'); fill(p); } } catch (e) {}
+    return () => { if (window.SM_BILL_FILL === fill) window.SM_BILL_FILL = null; };
+  }, []);
+  const track = (what) => { try { window.SM_TRACK && window.SM_TRACK(what, used.map((r) => r.n).filter(Boolean)); } catch (e) {} };
   const set = (k) => (e) => { const v = e.target.value; setF((o) => ({ ...o, [k]: v })); if (BILL_SHOP.includes(k)) store.set('jmk_bill_' + k, v); if (k === 'phone' && phErr) setPhErr(!billPhone(v)); };
   const setRow = (i, k) => (e) => { const v = e.target.value; setRows((rs2) => rs2.map((r, j) => (j === i ? { ...r, [k]: v } : r))); };
   const used = rows.filter((r) => r.n.trim() || n(r.r));
@@ -176,9 +200,9 @@ function BillMaker() {
   };
   const text = () => `${kind} ${f.no} from ${f.shop || 'our shop'}\nDate: ${f.date}${f.cust ? '\nFor: ' + f.cust : ''}\n\n` + used.map((r) => `- ${r.n || 'Item'} x ${n(r.q)} @ ${money(n(r.r))}`).join('\n') +
     (disc ? `\nDiscount: -${money(disc)}` : '') + (g ? `\nGST ${g}%: ${money(tax)}` : '') + `\nTotal: ${money(total)}` + (f.phone ? `\n\nCall: ${f.phone}` : '');
-  const wa = () => { if (!ok()) return; save(); let ph = f.custPh.replace(/\D/g, ''); if (ph.length === 10) ph = '91' + ph; window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(text()), '_blank', 'noopener'); };
+  const wa = () => { if (!ok()) return; save(); track('bill_wa'); let ph = f.custPh.replace(/\D/g, ''); if (ph.length === 10) ph = '91' + ph; window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(text()), '_blank', 'noopener'); };
   const pdf = () => {
-    if (!ok()) return; save();
+    if (!ok()) return; save(); track('bill_pdf');
     const el = document.getElementById('billPrint'); if (!el) return;
     el.textContent = '';
     const add = (tag, txt, st) => { const x = document.createElement(tag); if (txt != null) x.textContent = txt; if (st) x.setAttribute('style', st); el.appendChild(x); return x; };
@@ -238,6 +262,8 @@ function Leads({ me }) {
   const [err, setErr] = useState('');
   const [copied, setCopied] = useState('');
   useEffect(() => { setRows(null); setErr(''); api('/leads?source=' + src).then((d) => setRows(d.leads)).catch((e) => setErr(e.message)); }, [src]);
+  const [use, setUse] = useState(null);
+  useEffect(() => { setUse(null); api('/public/stats?days=30&site=' + src).then(setUse).catch(() => setUse(false)); }, [src]);
   const csv = () => {
     const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
     const text = ['Shop,Phone,Address,GSTIN,Bills made,Last type,Last total,Last bill,First bill'].concat((rows || []).map((r) => [r.shop, r.phone, r.address, r.gstin, r.bills, r.last_type, r.last_total, r.last_at, r.first_at].map(q).join(','))).join('\n');
@@ -247,6 +273,13 @@ function Leads({ me }) {
     <${Top} title="Free bill leads" back="/more"/>
     <div class="pad stack">
       ${isSuper ? html`<div class="chips" role="group" aria-label="Which site">${[['sai', 'sai.markets'], ['jmk', 'jmk.sai.markets']].map(([k, l]) => html`<button class=${'chip' + (src === k ? ' on' : '')} aria-pressed=${src === k} onClick=${() => setSrc(k)}>${l}</button>`)}</div>` : ''}
+      ${use ? html`<div class="card stack" aria-label="AI chat box usage, last 30 days">
+        <h3 style="margin:0">AI chat box · last 30 days</h3>
+        <div class="grid2">${[['Chats', use.features.chat], ['AI bills', use.features.ai_bill], ['Carts made', use.features.cart], ['Orders sent on WhatsApp', use.features.wa_order], ['Bill PDFs', use.features.bill_pdf], ['Bills sent on WhatsApp', use.features.bill_wa]].map(([l, v]) => html`<div class="stack" style="gap:0"><span class="tiny muted">${l}</span><b class="mid num">${v || 0}</b></div>`)}</div>
+        <span class="small">AI cost: <b>₹${use.ai_inr.toLocaleString('en-IN')}</b>${use.ai_inr_staff ? ` (₹${use.ai_inr_staff} by staff)` : ''} · public cap ₹${use.cap_inr_per_day}/day${use.on ? '' : ' · switched off'}</span>
+        ${use.products.length ? html`<details><summary class="small b">Top products asked for (${use.products.length})</summary>
+          ${use.products.map((p) => html`<div class="row between small" style="padding:4px 0;border-bottom:1px solid var(--line, #eee)"><span>${p.name}</span><span class="muted">${p.wa_order} sent · ${p.cart} carts · ${p.ai_bill} bills</span></div>`)}</details>` : ''}
+      </div>` : ''}
       <p class="small muted" style="margin:0">Shops that made a free bill on ${src === 'sai' ? 'sai.markets' : 'jmk.sai.markets'}. Each shop shows once, newest first.</p>
       ${err ? html`<div class="err">${err}</div>` : ''}
       ${rows == null && !err ? html`<p class="muted">Loading…</p>` : ''}
@@ -793,7 +826,7 @@ function App() {
     case 'items': page = html`<${Items} toast=${toast}/>`; break;
     case 'ai': page = html`<${Assistant} me=${me}/>`; break;
     case 'more': page = html`<${More} me=${me} onOut=${out} toast=${toast}/>`; break;
-    case 'bill': page = html`<div class="wrap pad stack" style="padding-top:18px"><a class="small" href="#/">← JMK stock</a><${BillMaker}/></div>`; break;
+    case 'bill': page = html`<div class="wrap pad stack" style="padding-top:18px"><a class="small" href="#/">← JMK stock</a><${BillMaker}/><${SaiBanner}/></div>`; break;
     case 'leads': page = html`<${Leads} me=${me}/>`; break;
     default: page = html`<div class="wrap pad"><div class="empty">Page not found. <a href="#/">Go to stock</a></div></div>`;
   }

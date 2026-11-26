@@ -581,12 +581,15 @@ import sys as _sys  # noqa: E402
 import assistant  # noqa: E402
 import whatsapp  # noqa: E402
 import leads  # noqa: E402
+import shopchat  # noqa: E402
 assistant.bind(db, _sys.modules[__name__])
 whatsapp.bind(db)
 leads.bind(db)
+shopchat.bind(db, _sys.modules[__name__])
 app.include_router(assistant.router)
 app.include_router(whatsapp.router)
 app.include_router(leads.router)
+app.include_router(shopchat.router)
 
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 _site = Path(os.environ.get('FRONTEND_DIR', ROOT_DIR.parent / 'frontend'))
@@ -614,6 +617,7 @@ async def startup():
     await db.wa_seen.create_index("id", unique=True)
     await db.leads.create_index([("source", 1), ("phone", 1)], unique=True)
     await db.leads.create_index([("source", 1), ("last_at", -1)])
+    await db.events.create_index([("site", 1), ("day", -1)])
 
 
 @app.on_event("shutdown")
