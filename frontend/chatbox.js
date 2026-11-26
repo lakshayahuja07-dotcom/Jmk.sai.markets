@@ -163,6 +163,8 @@
       .then(function () { busy = false; go.disabled = false; save(); draw(); inp.focus(); });
   });
 
-  function start() { mount(); sync(); }
+  function start() {  // show the chat bar only when the server has an AI key and the public chat is on
+    fetch(API + '/api/public/chat').then(function (r) { return r.json(); }).then(function (d) { if (d && d.on) { mount(); sync(); } }).catch(function () {});
+  }
   if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
 })();

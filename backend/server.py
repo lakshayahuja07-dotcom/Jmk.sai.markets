@@ -36,7 +36,7 @@ import security  # noqa: E402
 from security import current_user, need, charge_ai, SUPER, OWNER  # noqa: E402
 
 client = AsyncIOMotorClient(os.environ['MONGO_URL'])
-db = client[os.environ['DB_NAME']]
+db = client[os.environ.get('DB_NAME') or 'jmk']
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY', '')
 VISION_MODEL = os.environ.get('GEMINI_VISION_MODEL', 'gemini-2.5-flash')
 MAX_PHOTO_BYTES = 12 * 1024 * 1024
