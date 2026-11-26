@@ -40,7 +40,7 @@ _db = None
 S = None  # server module
 
 # Which AI answers: Gemini when GEMINI_API_KEY is set (free tier works), otherwise Claude (ANTHROPIC_API_KEY).
-GEMINI_MODEL = os.environ.get("PUBLIC_CHAT_GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.environ.get("PUBLIC_CHAT_GEMINI_MODEL", "gemini-3.1-flash-lite")
 MODEL = os.environ.get("PUBLIC_CHAT_MODEL", "claude-haiku-5-5")
 # USD per million tokens (paid list prices, Nov 2026), used only for the daily cap. On Gemini's free tier the real cost is 0.
 PRICES = {"gemini": (float(os.environ.get("PUBLIC_CHAT_GEMINI_PRICE_IN", "0.30")), float(os.environ.get("PUBLIC_CHAT_GEMINI_PRICE_OUT", "2.50"))),
@@ -178,8 +178,7 @@ async def ask_gemini(system: str, messages: List[Dict[str, str]]) -> Dict[str, A
     contents = [types.Content(role="model" if m["role"] == "assistant" else "user", parts=[types.Part(text=m["content"])])
                 for m in messages]
     cfg = types.GenerateContentConfig(system_instruction=system, temperature=0.2, max_output_tokens=700,
-                                      response_mime_type="application/json",
-                                      thinking_config=types.ThinkingConfig(thinking_budget=0))
+                                      response_mime_type="application/json")
     r = await g.aio.models.generate_content(model=GEMINI_MODEL, contents=contents, config=cfg)
     u = getattr(r, "usage_metadata", None)
     return {"text": r.text or "", "in": int(getattr(u, "prompt_token_count", 0) or 0),

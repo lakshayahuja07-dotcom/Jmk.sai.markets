@@ -38,7 +38,7 @@ from security import current_user, need, charge_ai, SUPER, OWNER  # noqa: E402
 client = AsyncIOMotorClient(os.environ['MONGO_URL'])
 db = client[os.environ.get('DB_NAME') or 'jmk']
 GEMINI_KEY = os.environ.get('GEMINI_API_KEY', '')
-VISION_MODEL = os.environ.get('GEMINI_VISION_MODEL', 'gemini-2.5-flash')
+VISION_MODEL = os.environ.get('GEMINI_VISION_MODEL', 'gemini-3.1-flash-lite')
 MAX_PHOTO_BYTES = 12 * 1024 * 1024
 IST = timezone(timedelta(hours=5, minutes=30))
 
