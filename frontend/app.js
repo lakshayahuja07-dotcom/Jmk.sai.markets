@@ -90,7 +90,20 @@ function Thumb({ it, size }) {
     : html`<div class="thumb" style=${'background:' + tintOf(it.film) + ';' + st} aria-hidden="true">${(it.film || '?').slice(0, 2).toUpperCase()}</div>`;
 }
 
-/* ---------- PUBLIC: stock page ---------- */
+/* ---------- PUBLIC: front page = stocklots for buyers + the JMK Godown App (yellow design) ---------- */
+const FB_WA = '917065653936';
+const FEATS = [['Live', 'Stock by photo and count', 'Labour snaps the roll, picks the zone and types how many. Kilos are noted only when it is sold.'],
+  ['Live', 'Chat in Hinglish', 'Type or speak: "10 roll aaye", "Gupta ji ne 20 hazaar diye". The app fills it in for you.'],
+  ['Live', 'Nothing saves without you', 'Every entry is shown back first. Send 1 to save, or undo if something is wrong.'],
+  ['Live', 'Sales and payments', 'Sales at dispatch, lena hai and dena hai for every party, so you know who owes what.'],
+  ['Coming next', 'WhatsApp bot', 'The same chat inside WhatsApp, once Meta approves the number.'],
+  ['Coming next', 'Staff, accountant and buyer logins', 'Separate views for staff, a view-only accountant, and buyers who see live stock.']];
+const FAQS = [['Do you sell plastic film rolls in small quantities?', 'Yes. Factories and converters can buy a single polymer by the roll or by the kg. Every roll is weighed at dispatch.'],
+  ['Do you supply full containers of plastic film stocklot?', 'Yes. We supply imported mixed packaging film in 40ft containers of 25 tonnes and more, delivered to your godown.'],
+  ['Can I see the stock before buying?', 'Yes. We send photos on WhatsApp and you are welcome to visit our godown in Alipur, Delhi.'],
+  ['What is the price of plastic film stocklot?', 'It depends on polymer, micron and grade. Ask us on WhatsApp for today\'s rate.'],
+  ['Can I use the godown app for my own godown?', 'Yes. It works for any godown that sells by weight or by count: plastic, scrap, paper, kapda, hardware. We set it up and train your labour.'],
+  ['Do my labour need to read English?', 'No. Entry is photos, zones and numbers on big buttons. The owner side works in Hinglish too.']];
 function Stock() {
   const [data, setData] = useState(null);
   const [shop, setShop] = useState({});
@@ -106,28 +119,47 @@ function Stock() {
   const items = (data?.items || []).filter((it) => (film === 'All' || it.film === film) &&
     (!q || (fullName(it) + ' ' + it.kind + ' ' + (it.note || '')).toLowerCase().includes(q.toLowerCase().trim())));
   const films = ['All', ...new Set((data?.items || []).map((i) => i.film))];
-  const wa = shop.whatsapp || shop.phone;
+  const wa = shop.whatsapp || shop.phone || FB_WA;
   const toggle = (id) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const one = (it) => `Hi ${shop.name || 'JMK'}, I saw this on your stock page. Please share the price:\n• ${fullName(it)} (${it.rolls} rolls)`;
   const many = () => {
     const rows = (data?.items || []).filter((i) => picked.includes(i.id));
     return `Hi ${shop.name || 'JMK'}, please share prices for:\n` + rows.map((it) => `• ${fullName(it)} (${it.rolls} rolls in stock)`).join('\n');
   };
-  const waLink = (text) => (wa ? `https://wa.me/${wa}?text=${encodeURIComponent(text)}` : null);
+  const waLink = (text) => `https://wa.me/${wa}?text=${encodeURIComponent(text)}`;
+  const askList = waLink(`Hi ${shop.name || 'JMK Traders'}, please send today's film stock list with photos.`);
   const pickedNow = picked.filter((id) => (data?.items || []).some((i) => i.id === id));
-  return html`<div class="wrap">
-    <header class="hero">
-      <div class="row between">
-        <div class="row">
-          <div class="logo" aria-hidden="true">JMK</div>
-          <div class="stack" style="gap:0"><span style="font:700 19px var(--head)">${shop.name || 'JMK Traders'}</span>
-            <span class="tiny" style="color:var(--dark-muted)">${[shop.tagline || 'Plastic film stocklots', shop.area || 'Alipur, Delhi'].join(' · ')}</span></div>
-        </div>
-        ${shop.phone ? html`<a class="icon onhero" href=${'tel:+' + shop.phone} aria-label="Call JMK">${Ico.phone}</a>` : ''}
+  const appHref = token ? '#/home' : '#/login';
+  return html`<div class="fr">
+    <header class="fr-hero"><div class="fr-in fr-heroin">
+      <div>
+        <div class="fr-brand"><b>JMK</b><span>${shop.name || 'JMK Traders'} · ${shop.area || 'Alipur, Delhi'}</span><a class="fr-open" href=${appHref}>Open the app</a></div>
+        <h1>Plastic film stocklots, and a godown that runs from your phone.</h1>
+        <p class="fr-lead">We're JMK Traders, a family business in Alipur. We sell PET, CPP, PP and LDPE film rolls by the kg, and full imported containers to fellow traders. Our whole godown runs on the JMK app: photo and count for labour, Hinglish chat for the owner.</p>
+        <div class="fr-ctas"><a class="fr-btn" href="#stock" onClick=${(e) => { e.preventDefault(); document.getElementById('stock')?.scrollIntoView({ behavior: 'smooth' }); }}>See today's stock</a>
+          <a class="fr-btn alt" href=${askList} target="_blank" rel="noopener">WhatsApp us</a></div>
+        <p class="fr-small">Prices on request. Come and check the rolls before anything is weighed.</p>
       </div>
+      <div class="fr-phone" aria-label="Example screen of the JMK godown app"><div class="fr-screen">
+        <div class="fr-bar"><span>10:42</span><span>4G</span></div>
+        <div class="fr-ahead"><b>Stock</b><span>Zone B</span></div>
+        ${[['#e9d36b', 'Yellow LDPE (lobhan)', 'Grade A · heap 3', 34], ['#c9d6e6', 'Silicone PET', 'Grade A · heap 1', 58], ['#9fb7a4', 'CPP laminate', 'Grade B · heap 5', 21]].map((r) => html`<div class="fr-roll"><div class="fr-th" style=${'background:radial-gradient(circle,#fff 0 18%,' + r[0] + ' 19% 60%,#0001 61% 64%,' + r[0] + ' 65%)'}></div><div><b>${r[1]}</b><small>${r[2]}</small></div><div class="fr-n">${r[3]} roll</div></div>`)}
+        <div class="fr-chat"><div class="fr-me">Sharma ji ko 6 roll lobhan diye, 412 kg, 50 hazaar baaki</div>
+          <div class="fr-ai">Yellow LDPE: 6 roll out, 412 kg. Sharma ji ki khata me ₹50,000 lena hai. <em>Save karne ke liye 1 bhejo.</em></div><div class="fr-me">1</div></div>
+      </div></div>
+    </div></header>
+
+    <section class="fr-band"><div class="fr-in">
+      <div class="fr-facts">${[['25+ t', 'per 40ft imported container'], ['By the kg', 'single polymer, single roll upward'], ['A, B, C', 'grades sorted, so you pay for what you use'], ['Alipur', 'Delhi, open for godown visits']].map((f) => html`<div class="fr-fact"><b>${f[0]}</b><span>${f[1]}</span></div>`)}</div>
+      <div class="fr-who">
+        <div class="fr-card"><span class="fr-tag">For wholesalers</span><h3>Imported film containers to your godown</h3><p>Take a full 40ft container of mixed packaging film, 25 tonnes and more, and sort it your way.</p></div>
+        <div class="fr-card"><span class="fr-tag">For factories</span><h3>Just the film your machine runs on</h3><p>One polymer at the micron you need, by the roll or by the kg. Weighed at dispatch.</p></div>
+      </div>
+    </div></section>
+
+    <section class="fr-band fr-kraft" id="stock"><div class="fr-in fr-narrow stack">
+      <h2>In stock now</h2>
       <label class="search">${Ico.search}<input type="search" value=${q} onInput=${(e) => setQ(e.target.value)} placeholder="Search film, micron… e.g. BOPP 20" aria-label="Search stock"/></label>
-    </header>
-    <div class="pad stack" style="padding-top:16px">
       <div class="chips" role="group" aria-label="Film type">${films.map((f) => html`<button class=${'chip' + (film === f ? ' on' : '')} aria-pressed=${film === f} onClick=${() => setFilm(f)}>${f}</button>`)}</div>
       ${err ? html`<div class="err">${err}</div>` : ''}
       ${data ? html`<p class="small muted" style="margin:0">${items.length} item${items.length === 1 ? '' : 's'} in stock · updated today</p>` : html`<p class="muted">Loading stock…</p>`}
@@ -140,17 +172,40 @@ function Stock() {
             <span class="small b good">${it.rolls} rolls${it.est_kg ? ` · ~${it.est_kg.toLocaleString('en-IN')} kg` : ''}</span>
             <div class="row" style="margin-top:auto;padding-top:6px">
               <button class="btn ghost sm" onClick=${() => toggle(it.id)} aria-pressed=${picked.includes(it.id)}>${picked.includes(it.id) ? '✓ In my list' : '+ Add to list'}</button>
-              ${waLink(one(it)) ? html`<a class="btn wa sm" href=${waLink(one(it))} target="_blank" rel="noopener">Ask price</a>` : ''}
+              <a class="btn wa sm" href=${waLink(one(it))} target="_blank" rel="noopener">Ask price</a>
             </div>
           </div>
         </article>`)}
-        ${data && !items.length ? html`<div class="empty">Nothing matches. Try another film, or ask us on WhatsApp.</div>` : ''}
+        ${data && !items.length ? html`<div class="empty">Stock moves fast. <a href=${askList} target="_blank" rel="noopener">Ask us on WhatsApp</a> for today's list with photos.</div>` : ''}
       </div>
-    </div>
-    ${pickedNow.length && waLink(many()) ? html`<div class="sticky"><a class="btn wa full" href=${waLink(many())} target="_blank" rel="noopener">Send my list on WhatsApp · ${pickedNow.length} item${pickedNow.length > 1 ? 's' : ''}</a></div>` : ''}
-    <div class="pad" style="padding-top:20px"><${BillMaker}/></div>
-    <div class="pad" style="padding-top:16px"><${SaiBanner}/></div>
-    <footer class="foot">Prices on request. Stock changes daily.<br/><a href="#/login">Staff sign in</a> · Made by <a href="https://sai.markets" target="_blank" rel="noopener">SAImarkets</a></footer>
+      <p class="small muted" style="margin:0">How buying works: tell us the polymer, micron and quantity, get photos and a rate on WhatsApp, check the rolls in Alipur, then we weigh and dispatch.</p>
+    </div></section>
+
+    <section class="fr-band"><div class="fr-in">
+      <h2>The JMK Godown App</h2>
+      <p class="fr-sub">We built it for our own godown first, where nothing was written down. So it had to be simple enough for anyone on the floor.</p>
+      <div class="fr-grid3">${FEATS.map((f) => html`<div class="fr-card"><span class=${'fr-tag' + (f[0] === 'Live' ? '' : ' next')}>${f[0]}</span><h3>${f[1]}</h3><p>${f[2]}</p></div>`)}</div>
+      <div class="fr-steps">${[['Truck comes in', 'Labour photographs the new rolls and types the count.'], ['You sell', 'Tell the app who took what and how much was paid. Stock and khata update together.'], ['Evening check', 'Ask "aaj kitna gaya?" or "kis se paisa lena hai?" and get the answer in seconds.']].map((st, i) => html`<div class="fr-step"><span class="fr-sn">${i + 1}</span><h3>${st[0]}</h3><p>${st[1]}</p></div>`)}</div>
+      <a class="fr-btn" href=${appHref}>Open the app</a>
+    </div></section>
+
+    <section class="fr-band fr-sell" id="for-your-godown"><div class="fr-in fr-sellin">
+      <div><h2>Run a godown too? We'll set it up for you.</h2>
+        <p>Stocklot, plastic, scrap, kapda or any bulk trading godown. We come, count your existing stock once, set up item photos and train your labour. After that the godown runs on its own, and you can check it from anywhere.</p></div>
+      <div><p class="fr-small" style="margin:0 0 4px">WhatsApp or call Lakshay</p><p class="fr-contact">76785 87824</p>
+        <a class="fr-btn" href="https://wa.me/917678587824?text=Hi%2C%20I%20want%20the%20godown%20app%20for%20my%20godown." target="_blank" rel="noopener">Message on WhatsApp</a></div>
+    </div></section>
+
+    <section class="fr-band"><div class="fr-in fr-narrow"><${BillMaker}/></div></section>
+
+    <section class="fr-band" style="padding-top:0"><div class="fr-in fr-narrow">
+      <h2>Common questions</h2>
+      ${FAQS.map((x) => html`<details class="fr-q"><summary>${x[0]}</summary><p>${x[1]}</p></details>`)}
+    </div></section>
+
+    ${pickedNow.length ? html`<div class="sticky fr-sticky"><a class="btn wa full" href=${waLink(many())} target="_blank" rel="noopener">Send my list on WhatsApp · ${pickedNow.length} item${pickedNow.length > 1 ? 's' : ''}</a></div>` : ''}
+    <div class="fr-in fr-narrow" style="padding:0 max(5vw,16px) 16px"><${SaiBanner}/></div>
+    <footer class="foot">JMK Traders · Alipur, Delhi · Prices on request, stock changes daily.<br/><a href="#/login">Staff sign in</a> · Made by <a href="https://sai.markets" target="_blank" rel="noopener">SAImarkets</a></footer>
   </div>`;
 }
 
