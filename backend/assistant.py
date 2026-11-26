@@ -33,7 +33,7 @@ S = None  # the server module (handlers + helpers), set by bind()
 GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
 ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 FAST_MODEL = os.environ.get("GEMINI_FAST_MODEL", "gemini-2.5-flash")
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5-5")
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-5-5")
 DRAFT_MINUTES = 30
 MAX_AUDIO = 8 * 1024 * 1024
 IST = timezone(timedelta(hours=5, minutes=30))
