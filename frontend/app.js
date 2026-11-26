@@ -101,6 +101,14 @@ const FEATS = [['Live', 'Stock by photo and count', 'Labour snaps the roll, pick
   ['Live', 'Sales and payments', 'Sales at dispatch, lena hai and dena hai for every party, so you know who owes what.'],
   ['Coming next', 'WhatsApp bot', 'The same chat inside WhatsApp, once Meta approves the number.'],
   ['Coming next', 'Staff, accountant and buyer logins', 'Separate views for staff, a view-only accountant, and buyers who see live stock.']];
+const KNOWN = [['Yellow LDPE film (lobhan)', 'LDPE', 'A, B, C', 'Liners, wrapping, carry bags. C grade for reprocessing.'],
+  ['Silicone-coated PET (release film)', 'PET', 'A, B', 'Release liner for labels, tapes and adhesives.'],
+  ['Nylon-polyester film', 'PA/PET', 'A, B', 'Vacuum pouches and high-strength laminates.'],
+  ['CPP laminate film', 'CPP', 'A, B', 'Food pouch sealing layer, bags, laminates.'],
+  ['Prime PP film', 'PP', 'A', 'Bags, wrapping, lamination base film.'],
+  ['Printed film rolls (mixed)', 'Mixed', 'B, C', 'Reprocessing, recycling, low-cost wrapping.'],
+  ['Foil and metallised laminate rolls', 'Metallised', 'B, C', 'Lamination, insulation, recycling.'],
+  ['Flooring trims', 'Trims', 'on request', 'Ask us for photos and details.']];
 const FAQS = [['Do you sell plastic film rolls in small quantities?', 'Yes. Factories and converters can buy a single polymer by the roll or by the kg. Every roll is weighed at dispatch.'],
   ['Do you supply full containers of plastic film stocklot?', 'Yes. We supply imported mixed packaging film in 40ft containers of 25 tonnes and more, delivered to your godown.'],
   ['Can I see the stock before buying?', 'Yes. We send photos on WhatsApp and you are welcome to visit our godown in Alipur, Delhi.'],
@@ -179,8 +187,14 @@ function Stock() {
             </div>
           </div>
         </article>`)}
-        ${data && !items.length ? html`<div class="empty">Stock moves fast. <a href=${askList} target="_blank" rel="noopener">Ask us on WhatsApp</a> for today's list with photos.</div>` : ''}
       </div>
+      <h3 style="margin:8px 0 0">${items.length ? 'Also in our godown' : 'Film we usually have'}</h3>
+      <div class="list">${KNOWN.filter((k) => !items.some((it) => (it.name || '').toLowerCase().includes(k[1].toLowerCase()))).map((k) => html`<article class="item">
+          <div class="thumb" style=${'background:' + tintOf(k[1])} aria-hidden="true">${k[1].slice(0, 2).toUpperCase()}</div>
+          <div class="grow"><h3>${k[0]}</h3><span class="small muted">Grades ${k[2]} · ${k[3]}</span>
+            <span class="small b">Quantity and price on request</span>
+            <div class="row" style="margin-top:auto;padding-top:6px"><a class="btn wa sm" href=${waLink(`Hi ${shop.name || 'JMK'}, do you have ${k[0]}? Please send photos, quantity and price.`)} target="_blank" rel="noopener">Ask on WhatsApp</a></div>
+          </div></article>`)}</div>
       <p class="small muted" style="margin:0">How buying works: tell us the polymer, micron and quantity, get photos and a rate on WhatsApp, check the rolls in Alipur, then we weigh and dispatch.</p>
     </div></section>
 
