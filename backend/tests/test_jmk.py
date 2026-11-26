@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 @pytest.fixture()
 def c():
     os.environ["DB_NAME"] = "jmk_" + uuid.uuid4().hex[:8]
-    for m in ("server", "security"):
+    for m in ("server", "security", "leads"):
         sys.modules.pop(m, None)
     server = importlib.import_module("server")
     with TestClient(server.app) as client:
@@ -189,3 +189,18 @@ def test_photo_roundtrip(c):
     assert it["photo"]
     r = c.get(f"/api/photo/{it['photo']}")
     assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+
+
+def test_free_bill_leads_kept_apart_by_site(c):
+    bill = {"shop": "Sharma Traders", "phone": "+91 98100 12345", "doc_type": "Invoice", "total": 1180, "items": 2}
+    assert c.post("/api/leads/bill", json={**bill, "source": "sai"}).status_code == 200
+    assert c.post("/api/leads/bill", json={**bill, "source": "sai", "total": 500}).status_code == 200
+    assert c.post("/api/leads/bill", json={**bill, "source": "jmk"}).status_code == 200
+    assert c.post("/api/leads/bill", json={**bill, "source": "sai", "phone": "12345"}).status_code == 422
+    assert c.post("/api/leads/bill", json={**bill, "source": "other"}).status_code == 422
+    sup, own = H(c, "ghost", "1111"), H(c)
+    sai = c.get("/api/leads?source=sai", headers=sup).json()["leads"]
+    assert len(sai) == 1 and sai[0]["phone"] == "9810012345" and sai[0]["bills"] == 2 and sai[0]["last_total"] == 500
+    assert len(c.get("/api/leads?source=jmk", headers=own).json()["leads"]) == 1
+    assert c.get("/api/leads?source=sai", headers=own).status_code == 403
+    assert c.get("/api/leads?source=jmk").status_code == 401

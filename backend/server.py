@@ -580,16 +580,19 @@ app.include_router(security.router)
 import sys as _sys  # noqa: E402
 import assistant  # noqa: E402
 import whatsapp  # noqa: E402
+import leads  # noqa: E402
 assistant.bind(db, _sys.modules[__name__])
 whatsapp.bind(db)
+leads.bind(db)
 app.include_router(assistant.router)
 app.include_router(whatsapp.router)
+app.include_router(leads.router)
 
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 _site = Path(os.environ.get('FRONTEND_DIR', ROOT_DIR.parent / 'frontend'))
 if (_site / 'index.html').is_file():
     app.mount("/", StaticFiles(directory=str(_site), html=True), name="site")
-_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', 'https://jmk.sai.markets').split(',') if o.strip() and o.strip() != '*']
+_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', 'https://jmk.sai.markets,https://sai.markets,https://www.sai.markets').split(',') if o.strip() and o.strip() != '*']
 app.add_middleware(CORSMiddleware, allow_credentials=False, allow_origins=_origins,
                    allow_methods=["GET", "POST", "PUT", "PATCH"], allow_headers=["Authorization", "Content-Type"])
 
@@ -609,6 +612,8 @@ async def startup():
     await db.chat.create_index([("user", 1), ("at", -1)])
     await db.drafts.create_index([("user", 1), ("at", -1)])
     await db.wa_seen.create_index("id", unique=True)
+    await db.leads.create_index([("source", 1), ("phone", 1)], unique=True)
+    await db.leads.create_index([("source", 1), ("last_at", -1)])
 
 
 @app.on_event("shutdown")

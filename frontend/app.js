@@ -148,7 +148,117 @@ function Stock() {
       </div>
     </div>
     ${pickedNow.length && waLink(many()) ? html`<div class="sticky"><a class="btn wa full" href=${waLink(many())} target="_blank" rel="noopener">Send my list on WhatsApp · ${pickedNow.length} item${pickedNow.length > 1 ? 's' : ''}</a></div>` : ''}
+    <div class="pad" style="padding-top:20px"><${BillMaker}/></div>
     <footer class="foot">Prices on request. Stock changes daily.<br/><a href="#/login">Staff sign in</a> · Made by <a href="https://sai.markets" target="_blank" rel="noopener">SAImarkets</a></footer>
+  </div>`;
+}
+
+/* ---------- PUBLIC: free bill / quote maker (leads shared with sai.markets, source "jmk") ---------- */
+const BILL_SHOP = ['shop', 'phone', 'addr', 'gstin'];
+function billPhone(v) { let d = String(v || '').replace(/\D/g, ''); if (d.length === 12 && d.startsWith('91')) d = d.slice(2); return /^[6-9]\d{9}$/.test(d) ? d : ''; }
+function BillMaker() {
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState('Invoice');
+  const [f, setF] = useState(() => { const o = { cust: '', custPh: '', no: '1', date: new Date().toISOString().slice(0, 10), gst: '0', disc: '' }; BILL_SHOP.forEach((k) => { o[k] = store.get('jmk_bill_' + k) || ''; }); return o; });
+  const [rows, setRows] = useState([{ n: '', q: '1', r: '' }]);
+  const [phErr, setPhErr] = useState(false);
+  const [msg, setMsg] = useState('');
+  const set = (k) => (e) => { const v = e.target.value; setF((o) => ({ ...o, [k]: v })); if (BILL_SHOP.includes(k)) store.set('jmk_bill_' + k, v); if (k === 'phone' && phErr) setPhErr(!billPhone(v)); };
+  const setRow = (i, k) => (e) => { const v = e.target.value; setRows((rs2) => rs2.map((r, j) => (j === i ? { ...r, [k]: v } : r))); };
+  const used = rows.filter((r) => r.n.trim() || n(r.r));
+  const sub = rows.reduce((a, r) => a + n(r.q) * n(r.r), 0), disc = Math.min(sub, n(f.disc)), g = n(f.gst), tax = (sub - disc) * g / 100, total = sub - disc + tax;
+  const money = (v) => '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  let lastSig = '';
+  const ok = () => { const good = !!billPhone(f.phone); setPhErr(!good); if (!good) document.getElementById('billPhone')?.focus(); return good; };
+  const save = () => {
+    const sig = [f.phone, kind, f.no, total].join('|'); if (sig === lastSig) return; lastSig = sig;
+    fetch('/api/leads/bill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: 'jmk', shop: f.shop, phone: f.phone, address: f.addr, gstin: f.gstin, doc_type: kind, number: f.no, total: Math.round(total * 100) / 100, items: used.length }) }).catch(() => {});
+  };
+  const text = () => `${kind} ${f.no} from ${f.shop || 'our shop'}\nDate: ${f.date}${f.cust ? '\nFor: ' + f.cust : ''}\n\n` + used.map((r) => `- ${r.n || 'Item'} x ${n(r.q)} @ ${money(n(r.r))}`).join('\n') +
+    (disc ? `\nDiscount: -${money(disc)}` : '') + (g ? `\nGST ${g}%: ${money(tax)}` : '') + `\nTotal: ${money(total)}` + (f.phone ? `\n\nCall: ${f.phone}` : '');
+  const wa = () => { if (!ok()) return; save(); let ph = f.custPh.replace(/\D/g, ''); if (ph.length === 10) ph = '91' + ph; window.open('https://wa.me/' + ph + '?text=' + encodeURIComponent(text()), '_blank', 'noopener'); };
+  const pdf = () => {
+    if (!ok()) return; save();
+    const el = document.getElementById('billPrint'); if (!el) return;
+    el.textContent = '';
+    const add = (tag, txt, st) => { const x = document.createElement(tag); if (txt != null) x.textContent = txt; if (st) x.setAttribute('style', st); el.appendChild(x); return x; };
+    add('h1', f.shop || 'Your shop');
+    add('div', [f.addr, f.phone, f.gstin ? 'GSTIN: ' + f.gstin : ''].filter(Boolean).join(' · '));
+    add('h2', `${kind === 'Invoice' ? 'Bill' : 'Quotation'} ${f.no}`, 'margin-top:18px');
+    add('div', `Date: ${f.date}${f.cust ? ' · For: ' + f.cust : ''}`);
+    const t = add('table'); const hr = t.insertRow(); ['#', 'Item', 'Qty', 'Rate', 'Amount'].forEach((h) => { const c = document.createElement('th'); c.textContent = h; hr.appendChild(c); });
+    used.forEach((r, i) => { const tr = t.insertRow(); [i + 1, r.n || 'Item', n(r.q), money(n(r.r)), money(n(r.q) * n(r.r))].forEach((v) => { tr.insertCell().textContent = String(v); }); });
+    add('p', [`Items: ${money(sub)}`, disc ? `Discount: -${money(disc)}` : '', g ? `GST ${g}%: ${money(tax)}` : ''].filter(Boolean).join('  ·  '), 'text-align:right;margin-top:12px');
+    add('p', `Total: ${money(total)}`, 'text-align:right;font-weight:700;font-size:18px');
+    add('p', 'Made free with jmk.sai.markets', 'margin-top:30px;color:#666;font-size:12px');
+    window.print();
+  };
+  const fresh = () => { setRows([{ n: '', q: '1', r: '' }]); setF((o) => ({ ...o, cust: '', custPh: '', disc: '', no: String((parseInt(o.no, 10) || 0) + 1) })); setMsg('Ready for the next one.'); };
+  if (!open) return html`<section class="card stack billcta" aria-labelledby="billH">
+      <span class="tiny b" style="color:var(--muted)">FREE TOOL FOR SHOPS</span>
+      <h2 id="billH" style="margin:0;font:700 22px var(--head)">Make a clean bill or quote in one minute</h2>
+      <p class="small muted" style="margin:0">Add your items and we work out the total and GST. Save it as a PDF or send it to your customer on WhatsApp.</p>
+      <button class="btn" onClick=${() => setOpen(true)}>Generate a free bill now</button>
+    </section>`;
+  return html`<section class="card stack" aria-label="Free bill maker">
+    <div class="chips" role="group" aria-label="Bill or quote">${['Invoice', 'Quotation'].map((k) => html`<button class=${'chip' + (kind === k ? ' on' : '')} aria-pressed=${kind === k} onClick=${() => setKind(k)}>${k === 'Invoice' ? 'Bill' : 'Quote'}</button>`)}</div>
+    <h3 style="margin:0">Your shop</h3>
+    <label class="f">Shop name<input class="in" value=${f.shop} onInput=${set('shop')} placeholder="Sharma Traders"/></label>
+    <label class="f">Your phone number (needed)<input id="billPhone" class="in" inputmode="tel" required value=${f.phone} onInput=${set('phone')} placeholder="98xxxxxxxx" aria-invalid=${phErr}/>
+      <span class="tiny" style="font-weight:400">We may contact you on this number about SAI.markets services.</span>
+      ${phErr ? html`<span class="err" style="margin:0">Enter your 10-digit mobile number to make the bill.</span>` : ''}</label>
+    <label class="f">Address<input class="in" value=${f.addr} onInput=${set('addr')} placeholder="Shop no, market, city"/></label>
+    <label class="f">GSTIN (optional)<input class="in" value=${f.gstin} onInput=${set('gstin')}/></label>
+    <h3 style="margin:0">Customer</h3>
+    <div class="grid2"><label class="f">Name<input class="in" value=${f.cust} onInput=${set('cust')}/></label>
+      <label class="f">WhatsApp<input class="in" inputmode="tel" value=${f.custPh} onInput=${set('custPh')} placeholder="98xxxxxxxx"/></label>
+      <label class="f">${kind === 'Invoice' ? 'Bill' : 'Quote'} number<input class="in" value=${f.no} onInput=${set('no')}/></label>
+      <label class="f">Date<input class="in" type="date" value=${f.date} onInput=${set('date')}/></label></div>
+    <h3 style="margin:0">Items</h3>
+    ${rows.map((r, i) => html`<div class="billrow"><input class="in" aria-label=${'Item ' + (i + 1)} placeholder="Item" value=${r.n} onInput=${setRow(i, 'n')}/>
+      <input class="in" aria-label="Qty" inputmode="decimal" value=${r.q} onInput=${setRow(i, 'q')}/>
+      <input class="in" aria-label="Rate in rupees" inputmode="decimal" placeholder="Rate" value=${r.r} onInput=${setRow(i, 'r')}/>
+      <button class="btn ghost sm" aria-label=${'Remove item ' + (i + 1)} onClick=${() => setRows((x) => (x.length > 1 ? x.filter((_, j) => j !== i) : [{ n: '', q: '1', r: '' }]))}>×</button></div>`)}
+    <button class="btn ghost sm" onClick=${() => setRows((x) => [...x, { n: '', q: '1', r: '' }])}>+ Add item</button>
+    <div class="grid2"><label class="f">GST<select class="in" value=${f.gst} onChange=${set('gst')}>${['0', '5', '12', '18', '28'].map((v) => html`<option value=${v}>${v === '0' ? 'No GST' : v + '%'}</option>`)}</select></label>
+      <label class="f">Discount (₹)<input class="in" inputmode="decimal" value=${f.disc} onInput=${set('disc')} placeholder="0"/></label></div>
+    <div class="row between" role="status"><span class="small muted">Items ${money(sub)}${disc ? ' · Discount −' + money(disc) : ''}${g ? ` · GST ${g}% ${money(tax)}` : ''}</span><b style="font-size:20px">${money(total)}</b></div>
+    <div class="grid2"><button class="btn" onClick=${pdf}>Save as PDF</button><button class="btn wa" onClick=${wa}>Send on WhatsApp</button></div>
+    <button class="btn ghost" onClick=${fresh}>New ${kind === 'Invoice' ? 'bill' : 'quote'}</button>
+    ${msg ? html`<p class="tiny muted" style="margin:0">${msg}</p>` : ''}
+    <p class="tiny muted" style="margin:0">A simple maker for everyday bills and quotes. Check GST rates with your CA.</p>
+  </section>`;
+}
+
+/* ---------- STAFF: leads from the free bill makers, kept apart by site ---------- */
+function Leads({ me }) {
+  const isSuper = me?.role === 'Sai Markets Super Admin';
+  const [src, setSrc] = useState(isSuper ? 'sai' : 'jmk');
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState('');
+  const [copied, setCopied] = useState('');
+  useEffect(() => { setRows(null); setErr(''); api('/leads?source=' + src).then((d) => setRows(d.leads)).catch((e) => setErr(e.message)); }, [src]);
+  const csv = () => {
+    const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const text = ['Shop,Phone,Address,GSTIN,Bills made,Last type,Last total,Last bill,First bill'].concat((rows || []).map((r) => [r.shop, r.phone, r.address, r.gstin, r.bills, r.last_type, r.last_total, r.last_at, r.first_at].map(q).join(','))).join('\n');
+    navigator.clipboard?.writeText(text).then(() => setCopied('Copied ' + (rows || []).length + ' rows'), () => setCopied('Could not copy'));
+  };
+  return html`<div class="wrap">
+    <${Top} title="Free bill leads" back="/more"/>
+    <div class="pad stack">
+      ${isSuper ? html`<div class="chips" role="group" aria-label="Which site">${[['sai', 'sai.markets'], ['jmk', 'jmk.sai.markets']].map(([k, l]) => html`<button class=${'chip' + (src === k ? ' on' : '')} aria-pressed=${src === k} onClick=${() => setSrc(k)}>${l}</button>`)}</div>` : ''}
+      <p class="small muted" style="margin:0">Shops that made a free bill on ${src === 'sai' ? 'sai.markets' : 'jmk.sai.markets'}. Each shop shows once, newest first.</p>
+      ${err ? html`<div class="err">${err}</div>` : ''}
+      ${rows == null && !err ? html`<p class="muted">Loading…</p>` : ''}
+      ${rows && !rows.length ? html`<div class="empty">No bills made here yet.</div>` : ''}
+      ${rows && rows.length ? html`<button class="btn ghost sm" onClick=${csv}>Copy all as CSV</button>${copied ? html`<span class="tiny muted">${copied}</span>` : ''}` : ''}
+      ${(rows || []).map((r) => html`<div class="card row between">
+        <div class="stack" style="gap:2px"><b>${r.shop || 'No shop name'}</b><span class="small muted">${r.address || ''}</span>
+          <span class="tiny muted">${r.bills} bill${r.bills === 1 ? '' : 's'} · last ${when(r.last_at)}</span></div>
+        <div class="row"><a class="btn ghost sm" href=${'tel:+91' + r.phone} aria-label=${'Call ' + (r.shop || r.phone)}>${r.phone}</a>
+          <a class="btn wa sm" href=${'https://wa.me/91' + r.phone} target="_blank" rel="noopener">WhatsApp</a></div>
+      </div>`)}
+    </div>
   </div>`;
 }
 
@@ -523,6 +633,7 @@ function More({ me, onOut, toast }) {
     <div class="pad stack">
       <p class="muted" style="margin:0">Signed in as <b>${me?.name}</b></p>
       <a class="btn ghost" href="#/">Open the buyers' stock page</a>
+      ${me?.role === 'Sai Markets Super Admin' || me?.role === 'Owner' ? html`<a class="btn ghost" href="#/leads">Free bill leads</a>` : ''}
       ${isSuper && shop ? html`<div class="card stack"><h3>Shop details (Sai Markets only)</h3>
         <label class="f">Name<input class="in" value=${shop.name} onInput=${set('name')}/></label>
         <label class="f">Line under name<input class="in" value=${shop.tagline} onInput=${set('tagline')}/></label>
@@ -667,7 +778,7 @@ function App() {
   useEffect(() => { if (token) api('/auth/me').then((d) => { setMe(d.me); store.set('jmk_me', JSON.stringify(d.me)); }).catch(() => {}); }, []);
   const out = () => { token = null; store.set('jmk_token', null); store.set('jmk_me', null); setMe(null); go('/'); };
   const parts = route.split('/').filter(Boolean);
-  const staffOnly = !['', 'login'].includes(parts[0] || '');
+  const staffOnly = !['', 'login', 'bill'].includes(parts[0] || '');
   if (staffOnly && !token) { go('/login'); return null; }
   let page;
   switch (parts[0] || '') {
@@ -682,6 +793,8 @@ function App() {
     case 'items': page = html`<${Items} toast=${toast}/>`; break;
     case 'ai': page = html`<${Assistant} me=${me}/>`; break;
     case 'more': page = html`<${More} me=${me} onOut=${out} toast=${toast}/>`; break;
+    case 'bill': page = html`<div class="wrap pad stack" style="padding-top:18px"><a class="small" href="#/">← JMK stock</a><${BillMaker}/></div>`; break;
+    case 'leads': page = html`<${Leads} me=${me}/>`; break;
     default: page = html`<div class="wrap pad"><div class="empty">Page not found. <a href="#/">Go to stock</a></div></div>`;
   }
   return html`${page}${parts[0] ? html`<${Toast} t=${t}/>` : ''}`;
