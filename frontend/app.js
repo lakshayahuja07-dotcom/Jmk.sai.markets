@@ -750,11 +750,13 @@ function More({ me, onOut, toast }) {
   const [team, setTeam] = useState([]);
   const [help, setHelp] = useState({ name: '', wa_phone: '' });
   const [acc, setAcc] = useState({ name: '', pin: '' });
+  const [pc, setPc] = useState({ id: '', pin: '' });
   const [dict, setDict] = useState(null);
   const loadTeam = () => api('/staff').then((d) => setTeam(d.staff)).catch(() => {});
   useEffect(() => { api('/shop').then(setShop).catch(() => {}); loadTeam(); api('/ai/dictionary').then((d) => setDict(d.text)).catch(() => {}); }, []);
   const addHelper = async () => { try { await api('/staff/helper', { method: 'POST', body: { name: help.name, wa_phone: help.wa_phone.replace(/\D/g, '') } }); setHelp({ name: '', wa_phone: '' }); toast('Worker added. Their WhatsApp can now ask what a roll is.'); loadTeam(); } catch (e) { toast(e.message); } };
   const addAcc = async () => { try { await api('/staff', { method: 'POST', body: { name: acc.name.trim(), pin: acc.pin, role: 'Accountant' } }); setAcc({ name: '', pin: '' }); toast('Accountant added. They sign in with their name and PIN.'); loadTeam(); } catch (e) { toast(e.message); } };
+  const setPinFor = async () => { const p = team.find((t) => t.id === pc.id); try { await api('/staff/' + pc.id, { method: 'PATCH', body: { pin: pc.pin } }); setPc({ id: '', pin: '' }); if (pc.id === me?.id) { toast('PIN changed. Sign in again with the new PIN.'); onOut(); } else toast('PIN changed for ' + (p ? p.name : 'them') + '.'); } catch (e) { toast(e.message); } };
   const off = async (p) => { try { await api('/staff/' + p.id, { method: 'PATCH', body: { active: !p.active } }); loadTeam(); } catch (e) { toast(e.message); } };
   const linkWa = async (p) => { const v = window.prompt('WhatsApp number for ' + p.name + ' (with 91)', p.wa_phone || ''); if (v == null) return; try { await api('/staff/' + p.id, { method: 'PATCH', body: { wa_phone: v.replace(/\D/g, '') } }); toast('WhatsApp linked'); loadTeam(); } catch (e) { toast(e.message); } };
   const saveDict = async () => { try { await api('/ai/dictionary', { method: 'PUT', body: { text: dict } }); toast('Shop words saved'); } catch (e) { toast(e.message); } };
@@ -776,6 +778,13 @@ function More({ me, onOut, toast }) {
           <input class="in" inputmode="numeric" placeholder="PIN (4 or 6 digits)" value=${acc.pin} onInput=${(e) => setAcc({ ...acc, pin: e.target.value.replace(/\D/g, '').slice(0, 6) })} aria-label="Accountant PIN"/></div>
         <button class="btn ghost" disabled=${!acc.name.trim() || ![4, 6].includes(acc.pin.length)} onClick=${addAcc}>Add accountant</button></div>` : ''}
       ${me?.role === 'Sai Markets Super Admin' || me?.role === 'Owner' ? html`<a class="btn ghost" href="#/leads">Free bill leads</a>` : ''}
+      ${isSuper || me?.role === 'Owner' ? html`<div class="card stack"><h3>Change a PIN</h3>
+        <p class="small muted" style="margin:0">Pick a person and type their new 4 or 6 digit PIN. Changing your own PIN signs you out.</p>
+        <select class="in" value=${pc.id} onChange=${(e) => setPc({ ...pc, id: e.target.value })} aria-label="Whose PIN">
+          <option value="">Whose PIN?</option>
+          ${team.filter((p) => p.role !== 'Labour' && p.active).map((p) => html`<option value=${p.id}>${p.secret ? 'Sai Markets (you)' : p.name} · ${p.role}</option>`)}</select>
+        <input class="in" type="password" inputmode="numeric" autocomplete="new-password" placeholder="New PIN" value=${pc.pin} onInput=${(e) => setPc({ ...pc, pin: e.target.value.replace(/\D/g, '').slice(0, 6) })} aria-label="New PIN"/>
+        <button class="btn ghost" disabled=${!pc.id || ![4, 6].includes(pc.pin.length)} onClick=${setPinFor}>Change PIN</button></div>` : ''}
       ${isSuper && shop ? html`<div class="card stack"><h3>Shop details (Sai Markets only)</h3>
         <label class="f">Name<input class="in" value=${shop.name} onInput=${set('name')}/></label>
         <label class="f">Line under name<input class="in" value=${shop.tagline} onInput=${set('tagline')}/></label>

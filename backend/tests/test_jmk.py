@@ -221,3 +221,13 @@ def test_accounts_only_for_owner_super_and_accountant(c):
     assert c.get("/api/parties?kind=buyer", headers=sal).json()["total"] is None
     assert c.post("/api/stock-in", headers=acc, json={"item": BOPP, "rolls": 5}).status_code == 403
     assert c.post("/api/staff", headers=own, json={"name": "X", "pin": "1234", "role": "Owner"}).status_code == 422
+
+
+def test_owner_and_super_change_pins(c):
+    hs = H(c, "ghost", "1111")
+    assert c.patch("/api/staff/geetansh", headers=hs, json={"pin": "4545"}).status_code == 200
+    assert c.post("/api/auth/login", json={"staff_id": "geetansh", "pin": "2222"}).status_code == 401
+    ho = H(c, "geetansh", "4545")
+    assert c.patch("/api/staff/lakshay", headers=ho, json={"pin": "9999"}).status_code == 403
+    assert c.patch("/api/staff/lakshay", headers=hs, json={"pin": "5656"}).status_code == 200
+    assert c.post("/api/auth/login", json={"staff_id": "ghost", "pin": "5656"}).status_code == 200
