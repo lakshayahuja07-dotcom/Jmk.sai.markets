@@ -487,7 +487,7 @@ async def ai_usage(user=Depends(need(OWNER))):
 async def license_public():
     """Public: only the state, so the staff screen can show a banner or the pause screen. Never blocks customers."""
     st = license_state(await license_row())
-    return {"state": st["state"], "days_left": st["days_left"], "contact_wa": os.environ.get("SAI_WA", "")}
+    return {"state": st["state"], "days_left": st["days_left"], "contact_wa": os.environ.get("SAI_WA", "917678587824")}
 
 
 class LicenseIn(BaseModel):
