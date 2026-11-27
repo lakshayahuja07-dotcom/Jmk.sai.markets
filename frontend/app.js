@@ -109,10 +109,11 @@ const KNOWN = [['Yellow LDPE film (lobhan)', 'LDPE', 'A, B, C', 'Liners, wrappin
   ['Printed film rolls (mixed)', 'Mixed', 'B, C', 'Reprocessing, recycling, low-cost wrapping.'],
   ['Foil and metallised laminate rolls', 'Metallised', 'B, C', 'Lamination, insulation, recycling.'],
   ['Flooring trims', 'Trims', 'on request', 'Ask us for photos and details.']];
-const FAQS = [['Do you sell plastic film rolls in small quantities?', 'Yes. Factories and converters can buy a single polymer by the roll or by the kg. Every roll is weighed at dispatch.'],
-  ['Do you supply full containers of plastic film stocklot?', 'Yes. We supply imported mixed packaging film in 40ft containers of 25 tonnes and more, delivered to your godown.'],
-  ['Can I see the stock before buying?', 'Yes. We send photos on WhatsApp and you are welcome to visit our godown in Alipur, Delhi.'],
-  ['What is the price of plastic film stocklot?', 'It depends on polymer, micron and grade. Ask us on WhatsApp for today\'s rate.'],
+const FAQS = [['Where can I buy plastic film stocklot in Delhi?', 'At JMK Traders in Alipur, Delhi. We keep PET, BOPP, CPP, PP and LDPE film rolls in stock, sold by the kg or by the container. Ask for photos and today\'s rate on WhatsApp.'],
+  ['Do you sell LDPE film rolls in small quantities?', 'Yes. Factories and converters can buy a single polymer, including LDPE, by the roll or by the kg. Every roll is weighed at dispatch.'],
+  ['Do you supply full containers of imported plastic film stocklot?', 'Yes. We supply imported mixed packaging film in 40ft containers of 25 tonnes and more, delivered to your godown.'],
+  ['Can I see the plastic rolls before buying?', 'Yes. We send photos on WhatsApp and you are welcome to visit our godown in Alipur, Delhi.'],
+  ['What is the price of plastic film stocklot?', 'It depends on polymer, micron and grade (A, B or C). Ask us on WhatsApp for today\'s rate.'],
   ['Can I use the godown app for my own godown?', 'Yes. It works for any godown that sells by weight or by count: plastic, scrap, paper, kapda, hardware. We set it up and train your labour.'],
   ['Do my labour need to read English?', 'No. Entry is photos, zones and numbers on big buttons. The owner side works in Hinglish too.']];
 function Stock() {
@@ -145,7 +146,7 @@ function Stock() {
     <header class="fr-hero"><div class="fr-in fr-heroin">
       <div>
         <div class="fr-brand"><b>JMK</b><span>${shop.name || 'JMK Traders'} · ${shop.area || 'Alipur, Delhi'}</span><a class="fr-open" href=${appHref}>Open the app</a></div>
-        <h1>Plastic film stocklots, and a godown that runs from your phone.</h1>
+        <h1>Plastic film stocklots in Delhi, and a godown that runs from your phone.</h1>
         <p class="fr-lead">We're JMK Traders, a family business in Alipur. We sell PET, CPP, PP and LDPE film rolls by the kg, and full imported containers to fellow traders. Our whole godown runs on the JMK app: photo and count for labour, Hinglish chat for the owner.</p>
         <div class="fr-ctas"><a class="fr-btn" href="#stock" onClick=${(e) => { e.preventDefault(); document.getElementById('stock')?.scrollIntoView({ behavior: 'smooth' }); }}>See today's stock</a>
           <a class="fr-btn alt" href=${askList} target="_blank" rel="noopener">WhatsApp us</a></div>
