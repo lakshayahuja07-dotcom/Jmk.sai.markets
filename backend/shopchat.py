@@ -282,6 +282,7 @@ async def chat(body: ChatIn, request: Request, user=Depends(optional_user)):
         wa = re.sub(r"\D", "", sh.get("whatsapp") or sh.get("phone") or "")
         if len(wa) == 10:
             wa = "91" + wa
+        wa = wa or SAI_WHATSAPP
     else:
         facts, order_rule, wa = SAI_FACTS, SAI_ORDER, SAI_WHATSAPP
     system = RULES.format(site=SITES[body.site], order_rule=order_rule, facts=facts)

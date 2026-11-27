@@ -94,7 +94,7 @@ function Thumb({ it, size }) {
 }
 
 /* ---------- PUBLIC: front page = stocklots for buyers + the JMK Godown App (yellow design) ---------- */
-const FB_WA = '917065653936';
+const FB_WA = '917678587824';
 const FEATS = [['Live', 'Stock by photo and count', 'Labour snaps the roll, picks the zone and types how many. Kilos are noted only when it is sold.'],
   ['Live', 'Chat in Hinglish', 'Type or speak: "10 roll aaye", "Gupta ji ne 20 hazaar diye". The app fills it in for you.'],
   ['Live', 'Nothing saves without you', 'Every entry is shown back first. Send 1 to save, or undo if something is wrong.'],

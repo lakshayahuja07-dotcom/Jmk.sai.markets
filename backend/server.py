@@ -140,7 +140,7 @@ async def get_photo(pid: str):
 
 
 # ---------------- shop details (only Sai Markets super admin changes them) ----------------
-SHOP_DEFAULT = {"name": "JMK Traders", "tagline": "Plastic film stocklots", "area": "Alipur, Delhi", "phone": "", "whatsapp": ""}
+SHOP_DEFAULT = {"name": "JMK Traders", "tagline": "Plastic film stocklots", "area": "Alipur, Delhi", "phone": "", "whatsapp": "917678587824"}
 
 
 async def shop() -> Dict[str, Any]:
